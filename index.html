@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Takoradi Stays – hostels, rooms & houses</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--ink:#0e2a3b;--sea:#1f8a8a;--crane:#f2b632;--foam:#e9f4f0;--card:#fff;--mut:#5b7280;--line:#d5e3de;--bad:#c0392b}
+*{box-sizing:border-box}body{margin:0;font:16px/1.5 Figtree,sans-serif;color:var(--ink);background:var(--foam)}
+h1,h2,h3,.logo{font-family:'Bricolage Grotesque',sans-serif;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--crane);outline-offset:2px}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 5vw;background:var(--ink);color:#fff;position:sticky;top:0;z-index:1000}
+.logo{font-size:22px;font-weight:800}.logo b{color:var(--crane)}
+nav{display:flex;gap:8px;align-items:center}
+.btn{border:0;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer;background:var(--crane);color:var(--ink)}
+.btn.alt{background:transparent;color:inherit;border:2px solid currentColor}.btn.sea{background:var(--sea);color:#fff}.btn.bad{background:var(--bad);color:#fff}.btn.sm{padding:6px 12px;font-size:14px}
+.hero{background:linear-gradient(180deg,var(--ink) 0,#134a5a 100%);color:#fff;padding:48px 5vw 90px;position:relative;overflow:hidden}
+.hero h1{font-size:clamp(34px,6vw,64px);line-height:1.02;max-width:760px}
+.hero p{max-width:560px;color:#cfe3e3}
+.waves{position:absolute;left:0;right:0;bottom:-1px;height:50px;background:var(--foam);clip-path:path('M0 30 Q 120 0 240 30 T 480 30 T 720 30 T 960 30 T 1200 30 T 1440 30 T 1680 30 T 1920 30 V50 H0Z')}
+.ship{position:absolute;right:6%;bottom:44px;font-size:54px;animation:sail 9s ease-in-out infinite alternate}
+@keyframes sail{to{transform:translateX(-60px) rotate(-3deg)}}@media(prefers-reduced-motion:reduce){.ship{animation:none}}
+.search{display:flex;gap:8px;background:#fff;border-radius:18px;padding:8px;max-width:680px;margin-top:22px;box-shadow:0 14px 34px #0005;position:relative}
+.search input{flex:1;border:0;padding:12px;font-size:17px;background:none;min-width:0;color:var(--ink)}
+#sug{position:absolute;top:100%;left:0;right:0;background:#fff;color:var(--ink);border-radius:12px;margin-top:6px;box-shadow:0 10px 30px #0004;z-index:2000;max-height:260px;overflow:auto}
+#sug div{padding:10px 16px;cursor:pointer}#sug div:hover{background:var(--foam)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.chip{border:2px solid #fff6;background:none;color:#fff;border-radius:99px;padding:5px 12px;cursor:pointer}.chip:hover{border-color:var(--crane)}
+main{padding:0 5vw 60px}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:-30px 0 18px;position:relative;z-index:2}
+.bar>*{background:#fff;border:2px solid var(--line);border-radius:99px;padding:8px 14px}
+.bar .on{background:var(--ink);color:#fff;border-color:var(--ink);cursor:pointer}.bar button{cursor:pointer}
+.split{display:grid;grid-template-columns:1.1fr 1fr;gap:20px;align-items:start}
+#map{height:calc(100vh - 120px);min-height:420px;border-radius:22px;position:sticky;top:76px;border:3px solid #fff;box-shadow:0 8px 24px #0e2a3b22}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.card{background:var(--card);border-radius:20px;overflow:hidden;cursor:pointer;box-shadow:0 4px 14px #0e2a3b14;transition:transform .15s;display:flex;flex-direction:column}
+.card:hover{transform:translateY(-4px) rotate(-.4deg)}
+.pic{height:160px;background:linear-gradient(135deg,var(--sea),var(--crane));background-size:cover;background-position:center;position:relative;display:grid;place-items:center;font-size:44px}
+.tag{position:absolute;top:10px;left:10px;background:var(--ink);color:#fff;border-radius:99px;font-size:13px;padding:2px 10px}
+.dist{position:absolute;top:10px;right:10px;background:var(--crane);border-radius:99px;font-size:13px;padding:2px 10px;font-weight:600}
+.cb{padding:12px 14px}.cb h3{font-size:18px}.mut{color:var(--mut);font-size:14px}.price{font-weight:800;font-size:18px;color:var(--sea)}
+.am{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.am span{background:var(--foam);border-radius:8px;padding:2px 8px;font-size:13px}
+.empty{padding:40px;text-align:center;background:#fff;border-radius:20px;grid-column:1/-1}
+.modal{position:fixed;inset:0;background:#0e2a3bcc;z-index:3000;display:none;place-items:center;padding:14px}.modal.show{display:grid}
+.sheet{background:#fff;border-radius:24px;width:min(760px,100%);max-height:92vh;overflow:auto;padding:22px;position:relative}
+.x{position:absolute;top:12px;right:14px;border:0;background:var(--foam);border-radius:50%;width:36px;height:36px;font-size:20px;cursor:pointer}
+.gal{display:flex;gap:8px;overflow-x:auto;margin:10px 0}.gal img{height:210px;border-radius:14px}
+label{display:block;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}.tabs .btn{background:var(--foam)}.tabs .btn.on{background:var(--ink);color:#fff}
+.amp{display:flex;flex-wrap:wrap;gap:8px}.amp label{font-weight:400;margin:0;background:var(--foam);padding:6px 10px;border-radius:99px;cursor:pointer;display:flex;gap:6px;align-items:center}.amp input{width:auto}
+#pick{height:230px;border-radius:14px;margin-top:6px}
+.li{display:flex;gap:10px;align-items:center;border:2px solid var(--line);border-radius:14px;padding:10px;margin:8px 0;flex-wrap:wrap}.li>div{flex:1;min-width:160px}
+.st{font-size:12px;border-radius:99px;padding:1px 9px;background:var(--crane)}
+body.locked>header,body.locked>.hero,body.locked>main,body.locked>footer{display:none}
+#m-auth.gate{background:linear-gradient(180deg,var(--ink),#134a5a)}#m-auth.gate .x{display:none}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 22px;border-radius:99px;z-index:5000;display:none}
+footer{text-align:center;padding:26px;color:var(--mut)}
+@media(max-width:860px){.split{grid-template-columns:1fr}#map{position:relative;top:0;height:340px;order:-1}.ship{display:none}.row{grid-template-columns:1fr}}
+</style></head><body class="locked">
+<header><div class="logo">Takoradi<b>Stays</b> ⚓</div><nav id="nav"></nav></header>
+
+<section class="hero">
+  <h1>Find your room in Takoradi before the ship leaves.</h1>
+  <p>Hostels, self-contains and houses from Market Circle to Sekondi, Apremdo to Kojokrom. Type a landmark and we'll show what's closest.</p>
+  <div class="search"><input id="q" placeholder="Try “Takoradi Technical University” or “Market Circle”" autocomplete="off" aria-label="Search a landmark"><button class="btn" id="go">Find stays</button><div id="sug" hidden></div></div>
+  <div class="chips" id="chips"></div>
+  <div class="ship" aria-hidden="true">🚢</div><div class="waves"></div>
+</section>
+
+<main>
+  <div class="bar" id="bar"></div>
+  <div class="split"><div><div id="info" class="mut" style="margin-bottom:10px"></div><div class="grid" id="grid"></div></div><div id="map"></div></div>
+</main>
+<footer>Takoradi Stays · Always visit a place and meet the landlord before paying.</footer>
+
+<div class="modal" id="m-view"><div class="sheet" id="v"></div></div>
+<div class="modal show gate" id="m-auth"><div class="sheet" style="width:min(430px,100%)"><button class="x" data-close>×</button><div class="logo" style="font-size:28px">Takoradi<b style="color:var(--sea)">Stays</b> ⚓</div><h2 id="at">Welcome</h2><p class="mut">Looking for a place to stay? Sign in or register with your Gmail. New accounts are created automatically.</p><p><button class="btn" id="ag" style="width:100%">Continue with Google</button></p><p class="mut">Landlord or admin? Use your email and password.</p>
+  <div id="nmw" hidden><label>Your name</label><input id="an"><input id="ar" type="hidden" value="landlord"></div>
+  <label>Email</label><input id="ae" type="email"><label>Password</label><input id="ap" type="password">
+  <p><button class="btn sea" id="asub">Log in</button> <button class="btn alt" id="aswap" style="color:var(--ink)">Create an account</button></p><p id="gd" hidden><button class="btn alt" id="gdb" style="color:var(--ink)">Preview as guest (demo mode)</button></p></div></div>
+<div class="modal" id="m-dash"><div class="sheet" style="width:min(900px,100%)"><button class="x" data-close>×</button><h2 id="dt">Dashboard</h2><div class="tabs" id="dtabs"></div><div id="dc"></div></div></div>
+<div id="toast" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,collection,addDoc,deleteDoc,updateDoc,doc,setDoc,getDoc,deleteField,onSnapshot,query,where,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+/* ====== 1. PASTE YOUR FIREBASE CONFIG HERE (Project settings > Your apps > Web) ====== */
+const CFG={apiKey:"AIzaSyB1KaaJX90BKZFHmQAsX2aM0NDHMd0KkoU",authDomain:"takoradistays.firebaseapp.com",projectId:"takoradistays",storageBucket:"takoradistays.firebasestorage.app",messagingSenderId:"991765433187",appId:"1:991765433187:web:7a1734cc6796b048f4a156"};
+/* ====== 2. YOUR EMAIL: the only address allowed to claim admin the first time ====== */
+const FIRST_ADMIN="kwamejayamponsah@gmail.com";
+const live=CFG.apiKey!=="YOUR_API_KEY";
+
+const LM=[["Takoradi Market Circle",4.8975,-1.7600],["Takoradi Technical University",4.9005,-1.7740],["Takoradi Harbour",4.8860,-1.7415],["Takoradi Mall",4.9030,-1.7650],["Effia-Nkwanta Regional Hospital",4.9125,-1.7700],["Takoradi Railway Station",4.8940,-1.7570],["Apremdo",4.9100,-1.7850],["Effiakuma",4.9020,-1.7900],["Kojokrom",4.9250,-1.7560],["Anaji",4.9180,-1.7480],["Airport Ridge",4.8960,-1.7740],["Sekondi",4.9340,-1.7137],["Essikado",4.9300,-1.7300],["Kweikuma",4.9060,-1.7440]];
+const AM=[["wifi","📶","Wi-Fi"],["water","🚿","Running water"],["light","💡","24/7 light"],["sec","🔒","Security"],["kit","🍳","Kitchen"],["ac","❄️","AC"],["fan","🌀","Fan"],["park","🚗","Parking"],["gen","⚡","Generator"],["wc","🚽","Own washroom"]];
+const TYPES=["Hostel","Self-contain","Single room","Apartment","Guest house"];
+const SAMPLE=[
+{id:"s1",name:"Harbour View Hostel",type:"Hostel",area:"Market Circle",price:2800,per:"year",rooms:6,am:["wifi","water","sec","fan"],desc:"Two-in-a-room hostel, 5 minutes walk from Market Circle and the taxi station.",phone:"233200000001",lat:4.8985,lng:-1.7585,images:[]},
+{id:"s2",name:"Twin City Self-contain",type:"Self-contain",area:"Apremdo",price:650,per:"month",rooms:2,am:["water","light","wc","park"],desc:"Tiled self-contain with prepaid meter and tenant parking.",phone:"233200000002",lat:4.9100,lng:-1.7840,images:[]},
+{id:"s3",name:"Sekondi Heights Guest House",type:"Guest house",area:"Sekondi",price:180,per:"night",rooms:9,am:["wifi","ac","sec","gen","kit"],desc:"Quiet guest house with sea breeze, perfect for short stays.",phone:"233200000003",lat:4.9330,lng:-1.7150,images:[]}];
+
+let L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},ref=null,ftype="",fmax="",ftxt="",markers=[];
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const toast=t=>{const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",3200)};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
+const money=l=>`GH₵ ${Number(l.price).toLocaleString()} / ${l.per}`;
+const open=id=>$(id).classList.add("show"),shut=()=>$$(".modal").forEach(m=>{if(!(m.id==="m-auth"&&document.body.classList.contains("locked")))m.classList.remove("show")});
+$$("[data-close]").forEach(b=>b.onclick=shut);$$(".modal").forEach(m=>m.onclick=e=>{if(e.target===m)shut()});
+
+/* ---- Firebase ---- */
+let db,auth;
+if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
+  onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()});
+  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();gate(!u);
+    if(u){const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
+      unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},()=>{AD={none:true};calc()})}
+    else calc()});
+}else{L_=SAMPLE}
+
+function gate(on){document.body.classList.toggle("locked",on);const m=$("#m-auth");m.classList.toggle("gate",on);if(on)m.classList.add("show");else{m.classList.remove("show");setTimeout(()=>map.invalidateSize(),60)}}
+function calc(){const r=U?(AD?.uid===U.uid?"admin":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings()}
+let unsubB=()=>{};
+function watchBookings(){unsubB();B_=[];if(!live||!U||role==="tenant")return;
+  const q=role==="admin"?collection(db,"bookings"):query(collection(db,"bookings"),where("ownerId","==",U.uid));
+  unsubB=onSnapshot(q,s=>{B_=s.docs.map(d=>({id:d.id,...d.data()}));nav()})}
+
+/* ---- Map ---- */
+const map=L.map("map",{scrollWheelZoom:true}).setView([4.9,-1.76],13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19}).addTo(map);
+const refIcon=L.divIcon({html:"<div style='font-size:34px'>📍</div>",className:"",iconSize:[34,34],iconAnchor:[17,32]});
+let refMk;
+function setRef(n,lat,lng){ref={n,lat,lng};refMk&&refMk.remove();refMk=L.marker([lat,lng],{icon:refIcon}).addTo(map).bindPopup("<b>"+esc(n)+"</b>").openPopup();map.flyTo([lat,lng],15);draw(true)}
+async function find(){const v=$("#q").value.trim();if(!v)return;$("#sug").hidden=true;
+  const m=LM.find(l=>l[0].toLowerCase().includes(v.toLowerCase()));if(m)return setRef(m[0],m[1],m[2]);
+  try{const r=await(await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&viewbox=-1.9,5.0,-1.6,4.8&q="+encodeURIComponent(v+", Takoradi, Ghana"))).json();
+    r[0]?setRef(v,+r[0].lat,+r[0].lon):toast("Couldn't find that landmark. Try a nearby town or street.")}catch{toast("Search failed. Check your connection.")}}
+$("#go").onclick=find;$("#q").onkeydown=e=>{if(e.key==="Enter")find()};
+$("#q").oninput=e=>{const v=e.target.value.toLowerCase(),s=$("#sug"),m=LM.filter(l=>l[0].toLowerCase().includes(v)).slice(0,6);
+  s.hidden=!v||!m.length;s.innerHTML=m.map(l=>`<div>📍 ${l[0]}</div>`).join("");
+  [...s.children].forEach((d,i)=>d.onclick=()=>{$("#q").value=m[i][0];find()})};
+$("#chips").innerHTML=["Takoradi Technical University","Takoradi Market Circle","Apremdo","Sekondi","Takoradi Harbour"].map(n=>`<button class="chip">${n}</button>`).join("");
+$$(".chip").forEach(c=>c.onclick=()=>{$("#q").value=c.textContent;find()});
+
+/* ---- Listings ---- */
+function view(){let a=L_.map(l=>({...l,d:ref?km(ref.lat,ref.lng,l.lat,l.lng):null}));
+  if(ftype)a=a.filter(l=>l.type===ftype);if(fmax)a=a.filter(l=>l.price<=+fmax);
+  if(ftxt)a=a.filter(l=>(l.name+l.area+l.desc).toLowerCase().includes(ftxt.toLowerCase()));
+  return ref?a.sort((x,y)=>x.d-y.d):a}
+function draw(){
+  $("#bar").innerHTML=`<button class="${!ftype?"on":""}" data-t="">All</button>`+TYPES.map(t=>`<button class="${ftype===t?"on":""}" data-t="${t}">${t}</button>`).join("")+`<input id="fx" type="number" placeholder="Max price GH₵" value="${fmax}" style="width:150px"><input id="ft" placeholder="Filter by name or area" value="${esc(ftxt)}" style="width:190px">`;
+  $$("#bar button").forEach(b=>b.onclick=()=>{ftype=b.dataset.t;draw()});
+  $("#fx").onchange=e=>{fmax=e.target.value;draw()};$("#ft").onchange=e=>{ftxt=e.target.value;draw()};
+  const a=view();$("#info").textContent=ref?`${a.length} places, closest to ${ref.n} first`:`${a.length} places in Takoradi and nearby`;
+  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.images?.[0]?`background-image:url(${l.images[0]})`:""}">${l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
+  $$(".card").forEach(c=>{c.onclick=()=>show(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter")show(c.dataset.id)}});
+  markers.forEach(m=>m.remove());markers=a.map(l=>L.marker([l.lat,l.lng]).addTo(map).bindPopup(`<b>${esc(l.name)}</b><br>${money(l)}<br><a href="#" data-pop="${l.id}">View details</a>`));
+}
+map.on("popupopen",e=>{const a=e.popup.getElement().querySelector("[data-pop]");a&&(a.onclick=ev=>{ev.preventDefault();show(a.dataset.pop)})});
+
+function show(id){const l=L_.find(x=>x.id===id);if(!l)return;
+  $("#v").innerHTML=`<button class="x" data-close>×</button><span class="st">${esc(l.type)}</span><h2>${esc(l.name)}</h2><div class="mut">📍 ${esc(l.area)}${ref?` · ${km(ref.lat,ref.lng,l.lat,l.lng).toFixed(1)} km from ${esc(ref.n)}`:""}</div>
+  ${l.images?.length?`<div class="gal">${l.images.map(i=>`<img src="${i}" alt="Photo of ${esc(l.name)}">`).join("")}</div>`:""}
+  <p>${esc(l.desc)}</p><div class="am">${(l.am||[]).map(k=>{const a=AM.find(x=>x[0]===k);return a?`<span>${a[1]} ${a[2]}</span>`:""}).join("")}</div>
+  <p class="price">${money(l)} · ${l.rooms} room(s) available</p>
+  ${!U?`<p><button class="btn" id="gs">Sign in with Gmail to see contact details and book</button></p>`:`<p><a class="btn sea" style="text-decoration:none;display:inline-block" href="https://wa.me/${String(l.phone).replace(/\D/g,"")}?text=${encodeURIComponent("Hello, I saw "+l.name+" on Takoradi Stays. Is it still available?")}" target="_blank" rel="noopener">Chat on WhatsApp</a> <a class="btn alt" style="color:var(--ink);text-decoration:none;display:inline-block" href="tel:${esc(l.phone)}">Call</a></p>
+  <h3>Request a booking</h3><div class="row"><div><label>Your name</label><input id="bn" value="${esc(U?.displayName||"")}"></div><div><label>Phone</label><input id="bp" type="tel"></div></div>
+  <div class="row"><div><label>Move-in date</label><input id="bd" type="date"></div><div><label>Note (optional)</label><input id="bt" placeholder="e.g. 2 students"></div></div>
+  <p><button class="btn" id="bs">Send booking request</button></p>`}`;
+  $("#v .x").onclick=shut;$("#bs")&&($("#bs").onclick=()=>book(l));$("#gs")&&($("#gs").onclick=()=>{shut();signup=false;authMode();open("#m-auth")});open("#m-view");map.flyTo([l.lat,l.lng],16)}
+async function book(l){const b={listingId:l.id,listingName:l.name,ownerId:l.owner||"demo",name:$("#bn").value.trim(),phone:$("#bp").value.trim(),date:$("#bd").value,note:$("#bt").value.trim(),status:"pending",userId:U?.uid||null,userEmail:U?.email||""};
+  if(!U)return toast("Sign in with Gmail first");
+  if(!b.name||!b.phone||!b.date)return toast("Add your name, phone and move-in date");
+  if(!live)return toast("Demo mode: connect Firebase to save bookings");
+  await addDoc(collection(db,"bookings"),{...b,created:serverTimestamp()});shut();toast("Request sent. The landlord will contact you.")}
+
+/* ---- Auth ---- */
+let signup=false;
+function authMode(){$("#nmw").hidden=!signup;$("#at").textContent=signup?"Create a landlord account":"Welcome";$("#asub").textContent=signup?"Sign up":"Log in";$("#aswap").textContent=signup?"I have an account":"Create an account"}
+$("#aswap").onclick=()=>{signup=!signup;authMode()};
+$("#ag").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
+  try{const c=await signInWithPopup(auth,new GoogleAuthProvider());
+    if(!/@gmail\.com$/i.test(c.user.email||"")){await signOut(auth);return toast("Please use a Gmail account")}
+    const d=doc(db,"users",c.user.uid);if(!(await getDoc(d)).exists())await setDoc(d,{name:c.user.displayName||"",role:"tenant",email:c.user.email});
+    shut();toast("Welcome, "+(c.user.displayName||"friend"))}catch(x){toast(x.message.replace("Firebase: ",""))}};
+$("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
+  try{const e=$("#ae").value.trim(),p=$("#ap").value;
+    if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:$("#ar").value,email:e});base=$("#ar").value;U={...c.user,displayName:$("#an").value};calc()}
+    else await signInWithEmailAndPassword(auth,e,p);shut();toast("You're in")}catch(x){toast(x.message.replace("Firebase: ",""))}};
+function nav(){const n=$("#nav");
+  n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
+  $("#nd")&&($("#nd").onclick=()=>dash("list"));
+  $("#nc")&&($("#nc").onclick=()=>setDoc(doc(db,"config","admin"),{uid:U.uid}).then(()=>toast("You are now the admin")).catch(()=>toast("Admin has already been claimed")));
+  $("#na")&&($("#na").onclick=()=>updateDoc(doc(db,"config","admin"),{uid:U.uid,transferTo:deleteField()}).then(()=>toast("You are now the admin")));$("#no")&&($("#no").onclick=()=>signOut(auth));
+  $("#nl")&&($("#nl").onclick=()=>{signup=false;authMode();open("#m-auth")});$("#nj")&&($("#nj").onclick=()=>{signup=true;authMode();open("#m-auth")})}
+
+/* ---- Dashboard ---- */
+function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord dashboard";
+  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+  $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
+  const mine=role==="admin"?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
+  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
+    $$("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this listing?")){await deleteDoc(doc(db,"listings",b.dataset.d));toast("Listing removed")}});
+    $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})})}
+  if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${b.phone.replace(/\D/g,"")}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
+    $$("[data-b]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"bookings",b.dataset.b),{status:b.dataset.s}).then(()=>toast("Booking "+b.dataset.s)))}
+  if(tab==="xfer"){c.innerHTML=`<p>You are the only admin. Enter the email of the person who should take over. They log in with that email and tap <b>Accept admin role</b>. You stay admin until they accept.</p>${AD?.transferTo?`<p><span class="st">Pending: ${esc(AD.transferTo)}</span></p>`:""}<input id="xe" type="email" placeholder="new-admin@email.com"><p><button class="btn" id="xs">Send transfer</button> ${AD?.transferTo?`<button class="btn alt" style="color:var(--ink)" id="xc">Cancel transfer</button>`:""}</p>`;
+    $("#xs").onclick=()=>{const e=$("#xe").value.trim().toLowerCase();if(!e.includes("@"))return toast("Enter a valid email");if(confirm("Hand admin over to "+e+"?"))updateDoc(doc(db,"config","admin"),{transferTo:e}).then(()=>{toast("Transfer sent");dash("xfer")})};
+    $("#xc")&&($("#xc").onclick=()=>updateDoc(doc(db,"config","admin"),{transferTo:deleteField()}).then(()=>dash("xfer")))}
+  if(tab==="add")addForm();open("#m-dash")}
+let pickMap,pickMk,pimgs=[];
+function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Name of hostel / house</label><input id="fn"></div><div><label>Type</label><select id="ftp">${TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div></div>
+<div class="row"><div><label>Area or town</label><input id="fa" placeholder="e.g. Apremdo, Sekondi"></div><div><label>Contact / WhatsApp number</label><input id="fp" placeholder="233..."></div></div>
+<div class="row"><div><label>Price (GH₵)</label><input id="fpr" type="number"></div><div><label>Per</label><select id="fper"><option>year</option><option>semester</option><option>month</option><option>night</option></select></div></div>
+<div class="row"><div><label>Rooms available</label><input id="fr" type="number" value="1"></div><div></div></div>
+<label>What's included</label><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}">${a[1]} ${a[2]}</label>`).join("")}</div>
+<label>Description (rules, deposit, distance to campus…)</label><textarea id="fd" rows="3"></textarea>
+<label>Photos (up to 4)</label><input id="fi" type="file" accept="image/*" multiple><div class="gal" id="prev"></div>
+<label>Tap the map to pin the exact spot</label><div id="pick"></div><p><button class="btn" id="fs">Publish listing</button></p>`;
+  setTimeout(()=>{pickMap&&pickMap.remove();pickMap=L.map("pick").setView([4.9,-1.76],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(pickMap);pickMk=null;
+    pickMap.on("click",e=>{pickMk?pickMk.setLatLng(e.latlng):pickMk=L.marker(e.latlng).addTo(pickMap)})},60);
+  $("#fi").onchange=async e=>{pimgs=[];for(const f of [...e.target.files].slice(0,4))pimgs.push(await shrink(f));$("#prev").innerHTML=pimgs.map(i=>`<img src="${i}" style="height:90px">`).join("")};
+  $("#fs").onclick=async()=>{const g=id=>$(id).value.trim(),n=g("#fn");
+    if(!n||!g("#fpr")||!g("#fp")||!pickMk)return toast("Add a name, price, phone and pin the location");
+    if(!live)return toast("Demo mode: connect Firebase to publish");
+    const p=pickMk.getLatLng();await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),images:pimgs,lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
+    toast("Listing published");dash("list")}}
+function shrink(f){return new Promise(r=>{const i=new Image;i.onload=()=>{const s=Math.min(1,720/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.65))};i.src=URL.createObjectURL(f)})}
+if(!live){nav();draw();$("#gd").hidden=false;$("#gdb").onclick=()=>{gate(false);toast("Demo mode: add your Firebase config to go live")}}
+</script></body></html>
