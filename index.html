@@ -78,10 +78,16 @@ footer{text-align:center;padding:26px;color:var(--mut)}
 <footer>Takoradi Stays · Always visit a place and meet the landlord before paying.</footer>
 
 <div class="modal" id="m-view"><div class="sheet" id="v"></div></div>
-<div class="modal show gate" id="m-auth"><div class="sheet" style="width:min(430px,100%)"><button class="x" data-close>×</button><div class="logo" style="font-size:28px">Takoradi<b style="color:var(--sea)">Stays</b> ⚓</div><h2 id="at">Welcome</h2><p class="mut">Looking for a place to stay? Sign in or register with your Gmail. New accounts are created automatically.</p><p><button class="btn" id="ag" style="width:100%">Continue with Google</button></p><p class="mut">Landlord or admin? Use your email and password.</p>
-  <div id="nmw" hidden><label>Your name</label><input id="an"><input id="ar" type="hidden" value="landlord"></div>
+<div class="modal show gate" id="m-auth"><div class="sheet" style="width:min(440px,100%)"><button class="x" data-close>×</button>
+  <div class="logo" style="font-size:28px">Takoradi<b style="color:var(--sea)">Stays</b> ⚓</div>
+  <h2 id="at">Find a place to stay</h2>
+  <div class="tabs" id="rl"><button class="btn on" data-rl="tenant">I'm looking for a place</button><button class="btn" data-rl="landlord">I'm a landlord</button></div>
+  <p class="mut" id="rh"></p>
+  <p><button class="btn" id="ag" style="width:100%">Continue with Google</button></p>
+  <div id="ef" hidden><p class="mut">Or use an email and password</p><div id="nmw" hidden><label>Your name</label><input id="an"></div>
   <label>Email</label><input id="ae" type="email"><label>Password</label><input id="ap" type="password">
-  <p><button class="btn sea" id="asub">Log in</button> <button class="btn alt" id="aswap" style="color:var(--ink)">Create an account</button></p><p id="gd" hidden><button class="btn alt" id="gdb" style="color:var(--ink)">Preview as guest (demo mode)</button></p></div></div>
+  <p><button class="btn sea" id="asub">Log in</button> <button class="btn alt" id="aswap" style="color:var(--ink)">Create an account</button></p></div>
+  <p id="gd" hidden><button class="btn alt" id="gdb" style="color:var(--ink)">Preview as guest (demo mode)</button></p></div></div>
 <div class="modal" id="m-dash"><div class="sheet" style="width:min(900px,100%)"><button class="x" data-close>×</button><h2 id="dt">Dashboard</h2><div class="tabs" id="dtabs"></div><div id="dc"></div></div></div>
 <div id="toast" role="status"></div>
 
@@ -126,9 +132,10 @@ if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
 
 function gate(on){document.body.classList.toggle("locked",on);const m=$("#m-auth");m.classList.toggle("gate",on);if(on)m.classList.add("show");else{m.classList.remove("show");setTimeout(()=>map.invalidateSize(),60)}}
 function calc(){const r=U?(AD?.uid===U.uid?"admin":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings()}
-let unsubB=()=>{};
-function watchBookings(){unsubB();B_=[];if(!live||!U||role==="tenant")return;
+let unsubB=()=>{},unsubU=()=>{},UL=[];
+function watchBookings(){unsubB();unsubU();B_=[];UL=[];if(!live||!U||role==="tenant")return;
   const q=role==="admin"?collection(db,"bookings"):query(collection(db,"bookings"),where("ownerId","==",U.uid));
+  if(role==="admin")unsubU=onSnapshot(collection(db,"users"),s=>{UL=s.docs.map(d=>({id:d.id,...d.data()}))});
   unsubB=onSnapshot(q,s=>{B_=s.docs.map(d=>({id:d.id,...d.data()}));nav()})}
 
 /* ---- Map ---- */
@@ -181,17 +188,22 @@ async function book(l){const b={listingId:l.id,listingName:l.name,ownerId:l.owne
   await addDoc(collection(db,"bookings"),{...b,created:serverTimestamp()});shut();toast("Request sent. The landlord will contact you.")}
 
 /* ---- Auth ---- */
-let signup=false;
-function authMode(){$("#nmw").hidden=!signup;$("#at").textContent=signup?"Create a landlord account":"Welcome";$("#asub").textContent=signup?"Sign up":"Log in";$("#aswap").textContent=signup?"I have an account":"Create an account"}
+let signup=false,want="tenant";
+function authMode(){const ll=want==="landlord";$("#ef").hidden=!ll;$("#nmw").hidden=!(ll&&signup);
+  $("#at").textContent=ll?(signup?"Register as a landlord":"Landlord log in"):"Find a place to stay";
+  $("#rh").textContent=ll?"List your hostels and houses and get booking requests. Gmail users can also continue with Google.":"Sign in or register with your Gmail. A new account is created automatically.";
+  $("#asub").textContent=signup?"Register":"Log in";$("#aswap").textContent=signup?"I have an account":"Create an account";
+  $$("[data-rl]").forEach(b=>b.classList.toggle("on",b.dataset.rl===want))}
 $("#aswap").onclick=()=>{signup=!signup;authMode()};
+$$("[data-rl]").forEach(b=>b.onclick=()=>{want=b.dataset.rl;authMode()});
 $("#ag").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
   try{const c=await signInWithPopup(auth,new GoogleAuthProvider());
     if(!/@gmail\.com$/i.test(c.user.email||"")){await signOut(auth);return toast("Please use a Gmail account")}
-    const d=doc(db,"users",c.user.uid);if(!(await getDoc(d)).exists())await setDoc(d,{name:c.user.displayName||"",role:"tenant",email:c.user.email});
+    const d=doc(db,"users",c.user.uid);if(!(await getDoc(d)).exists()){await setDoc(d,{name:c.user.displayName||"",role:want,email:c.user.email,created:serverTimestamp()});base=want;calc()}
     shut();toast("Welcome, "+(c.user.displayName||"friend"))}catch(x){toast(x.message.replace("Firebase: ",""))}};
 $("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
   try{const e=$("#ae").value.trim(),p=$("#ap").value;
-    if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:$("#ar").value,email:e});base=$("#ar").value;U={...c.user,displayName:$("#an").value};calc()}
+    if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:"landlord",email:e,created:serverTimestamp()});base="landlord";U={...c.user,displayName:$("#an").value};calc()}
     else await signInWithEmailAndPassword(auth,e,p);shut();toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords: tap Create an account first.":x.message.replace("Firebase: ",""))}};
 function nav(){const n=$("#nav");
   n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
@@ -202,7 +214,7 @@ function nav(){const n=$("#nav");
 
 /* ---- Dashboard ---- */
 function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord dashboard";
-  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
   const mine=role==="admin"?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
   if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
@@ -210,6 +222,11 @@ function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord d
     $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})})}
   if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${b.phone.replace(/\D/g,"")}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
     $$("[data-b]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"bookings",b.dataset.b),{status:b.dataset.s}).then(()=>toast("Booking "+b.dataset.s)))}
+  const T=x=>x?.toDate?x.toDate():null,fm=d=>d?d.toLocaleDateString()+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
+  if(tab==="land"){const a=UL.filter(u=>u.role==="landlord");c.innerHTML=`<p class="mut">${a.length} landlord(s)</p>`+a.map(u=>{const ls=L_.filter(l=>l.owner===u.id),bs=B_.filter(b=>b.ownerId===u.id);return `<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${ls.length} listing(s) · ${bs.length} booking request(s), ${bs.filter(b=>b.status==="confirmed").length} confirmed</div></div></div>`}).join("")||`<p class="mut">No landlords have registered yet.</p>`}
+  if(tab==="ten"){const a=UL.filter(u=>u.role==="tenant"&&u.id!==AD?.uid);c.innerHTML=`<p class="mut">${a.length} tenant(s)</p>`+a.map(u=>{const bs=B_.filter(b=>b.userId===u.id).sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));return `<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${bs.length} booking request(s)${bs[0]?" · latest: "+esc(bs[0].listingName)+" ("+bs[0].status+")":""}</div></div></div>`}).join("")||`<p class="mut">No tenants have registered yet.</p>`}
+  if(tab==="act"){const ev=[...UL.map(u=>({t:T(u.created),m:`👤 ${esc(u.name||u.email)} registered as a ${esc(u.role)}`})),...L_.map(l=>({t:T(l.created),m:`🏠 ${esc(l.ownerName||"A landlord")} listed <b>${esc(l.name)}</b> (${esc(l.area)})`})),...B_.map(b=>({t:T(b.created),m:`📅 ${esc(b.name)} requested <b>${esc(b.listingName)}</b> · ${b.status}`}))].filter(e=>e.t).sort((x,y)=>y.t-x.t).slice(0,60);
+    c.innerHTML=ev.length?ev.map(e=>`<div class="li"><div>${e.m}<div class="mut">${fm(e.t)}</div></div></div>`).join(""):`<p class="mut">No activity yet.</p>`}
   if(tab==="xfer"){c.innerHTML=`<p>You are the only admin. Enter the email of the person who should take over. They log in with that email and tap <b>Accept admin role</b>. You stay admin until they accept.</p>${AD?.transferTo?`<p><span class="st">Pending: ${esc(AD.transferTo)}</span></p>`:""}<input id="xe" type="email" placeholder="new-admin@email.com"><p><button class="btn" id="xs">Send transfer</button> ${AD?.transferTo?`<button class="btn alt" style="color:var(--ink)" id="xc">Cancel transfer</button>`:""}</p>`;
     $("#xs").onclick=()=>{const e=$("#xe").value.trim().toLowerCase();if(!e.includes("@"))return toast("Enter a valid email");if(confirm("Hand admin over to "+e+"?"))updateDoc(doc(db,"config","admin"),{transferTo:e}).then(()=>{toast("Transfer sent");dash("xfer")})};
     $("#xc")&&($("#xc").onclick=()=>updateDoc(doc(db,"config","admin"),{transferTo:deleteField()}).then(()=>dash("xfer")))}
@@ -232,5 +249,6 @@ function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Nam
     const p=pickMk.getLatLng();await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),images:pimgs,lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
     toast("Listing published");dash("list")}}
 function shrink(f){return new Promise(r=>{const i=new Image;i.onload=()=>{const s=Math.min(1,720/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.65))};i.src=URL.createObjectURL(f)})}
+authMode();
 if(!live){nav();draw();$("#gd").hidden=false;$("#gdb").onclick=()=>{gate(false);toast("Demo mode: add your Firebase config to go live")}}
 </script></body></html>
