@@ -120,7 +120,7 @@ if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
   let unsubL=()=>{};
   onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();unsubL();gate(!u);
     if(u){unsubL=onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
-      unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},()=>{AD={none:true};calc()})}
+      unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},e=>{AD={none:true};calc();toast("Cannot read admin settings ("+e.code+"). Check your Firestore rules.")})}
     else calc()});
 }else{L_=SAMPLE}
 
@@ -196,7 +196,7 @@ $("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config fir
 function nav(){const n=$("#nav");
   n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
   $("#nd")&&($("#nd").onclick=()=>dash("list"));
-  $("#nc")&&($("#nc").onclick=()=>setDoc(doc(db,"config","admin"),{uid:U.uid}).then(()=>toast("You are now the admin")).catch(()=>toast("Admin has already been claimed")));
+  $("#nc")&&($("#nc").onclick=()=>setDoc(doc(db,"config","admin"),{uid:U.uid}).then(()=>toast("You are now the admin")).catch(e=>toast(e.code==="permission-denied"?"Permission denied. Either admin is already claimed, or the email in your Firestore rules is not "+FIRST_ADMIN:"Could not claim admin: "+e.message)));
   $("#na")&&($("#na").onclick=()=>updateDoc(doc(db,"config","admin"),{uid:U.uid,transferTo:deleteField()}).then(()=>toast("You are now the admin")));$("#no")&&($("#no").onclick=()=>signOut(auth));
   $("#nl")&&($("#nl").onclick=()=>{signup=false;authMode();open("#m-auth")});$("#nj")&&($("#nj").onclick=()=>{signup=true;authMode();open("#m-auth")})}
 
