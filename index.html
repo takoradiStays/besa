@@ -104,14 +104,15 @@ const FIRST_ADMIN="kwamejayamponsah@gmail.com";
 const live=CFG.apiKey!=="YOUR_API_KEY";
 
 const LM=[["Takoradi Market Circle",4.8975,-1.7600],["Takoradi Technical University",4.9005,-1.7740],["Takoradi Harbour",4.8860,-1.7415],["Takoradi Mall",4.9030,-1.7650],["Effia-Nkwanta Regional Hospital",4.9125,-1.7700],["Takoradi Railway Station",4.8940,-1.7570],["Apremdo",4.9100,-1.7850],["Effiakuma",4.9020,-1.7900],["Kojokrom",4.9250,-1.7560],["Anaji",4.9180,-1.7480],["Airport Ridge",4.8960,-1.7740],["Sekondi",4.9340,-1.7137],["Essikado",4.9300,-1.7300],["Kweikuma",4.9060,-1.7440]];
-const AM=[["wifi","📶","Wi-Fi"],["water","🚿","Running water"],["light","💡","24/7 light"],["sec","🔒","Security"],["kit","🍳","Kitchen"],["ac","❄️","AC"],["fan","🌀","Fan"],["park","🚗","Parking"],["gen","⚡","Generator"],["wc","🚽","Own washroom"]];
+const BASE=[["wifi","📶","Wi-Fi"],["water","🚿","Running water"],["light","💡","24/7 light"],["sec","🔒","Security"],["kit","🍳","Kitchen"],["ac","❄️","AC"],["fan","🌀","Fan"],["park","🚗","Parking"],["gen","⚡","Generator"],["wc","🚽","Own washroom"]];
+let AM=[...BASE];
 const TYPES=["Hostel","Self-contain","Single room","Apartment","Guest house"];
 const SAMPLE=[
 {id:"s1",name:"Harbour View Hostel",type:"Hostel",area:"Market Circle",price:2800,per:"year",rooms:6,am:["wifi","water","sec","fan"],desc:"Two-in-a-room hostel, 5 minutes walk from Market Circle and the taxi station.",phone:"233200000001",lat:4.8985,lng:-1.7585,images:[]},
 {id:"s2",name:"Twin City Self-contain",type:"Self-contain",area:"Apremdo",price:650,per:"month",rooms:2,am:["water","light","wc","park"],desc:"Tiled self-contain with prepaid meter and tenant parking.",phone:"233200000002",lat:4.9100,lng:-1.7840,images:[]},
 {id:"s3",name:"Sekondi Heights Guest House",type:"Guest house",area:"Sekondi",price:180,per:"night",rooms:9,am:["wifi","ac","sec","gen","kit"],desc:"Quiet guest house with sea breeze, perfect for short stays.",phone:"233200000003",lat:4.9330,lng:-1.7150,images:[]}];
 
-let L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},ref=null,ftype="",fmax="",ftxt="",markers=[];
+let CI=[],L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},ref=null,ftype="",fmax="",ftxt="",markers=[];
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const toast=t=>{const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",3200)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -123,9 +124,9 @@ $$("[data-close]").forEach(b=>b.onclick=shut);$$(".modal").forEach(m=>m.onclick=
 /* ---- Firebase ---- */
 let db,auth;
 if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
-  let unsubL=()=>{};
-  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();unsubL();gate(!u);
-    if(u){unsubL=onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
+  let unsubL=()=>{},unsubC=()=>{};
+  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();unsubL();unsubC();gate(!u);
+    if(u){unsubC=onSnapshot(doc(db,"config","inclusions"),s=>{CI=s.data()?.items||[];AM=[...BASE,...CI.map(i=>[i.k,i.e,i.n])];draw()},()=>{});unsubL=onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
       unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},e=>{AD={none:true};calc();toast("Cannot read admin settings ("+e.code+"). Check your Firestore rules.")})}
     else calc()});
 }else{L_=SAMPLE}
@@ -165,7 +166,7 @@ function draw(){
   $$("#bar button").forEach(b=>b.onclick=()=>{ftype=b.dataset.t;draw()});
   $("#fx").onchange=e=>{fmax=e.target.value;draw()};$("#ft").onchange=e=>{ftxt=e.target.value;draw()};
   const a=view();$("#info").textContent=ref?`${a.length} places, closest to ${ref.n} first`:`${a.length} places in Takoradi and nearby`;
-  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.images?.[0]?`background-image:url(${l.images[0]})`:""}">${l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
+  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.images?.[0]?`background-image:url(${l.images[0]})`:""}">${l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).filter(k=>AM.some(x=>x[0]===k)).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
   $$(".card").forEach(c=>{c.onclick=()=>show(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter")show(c.dataset.id)}});
   markers.forEach(m=>m.remove());markers=a.map(l=>L.marker([l.lat,l.lng]).addTo(map).bindPopup(`<b>${esc(l.name)}</b><br>${money(l)}<br><a href="#" data-pop="${l.id}">View details</a>`));
 }
@@ -214,12 +215,14 @@ function nav(){const n=$("#nav");
 
 /* ---- Dashboard ---- */
 function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord dashboard";
-  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],["inc","What's included"],["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
   const mine=role==="admin"?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
-  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
+  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
     $$("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this listing?")){await deleteDoc(doc(db,"listings",b.dataset.d));toast("Listing removed")}});
-    $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})})}
+    $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})});
+    $$("[data-ei]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.ei);c.innerHTML=`<h3>What's included at ${esc(l.name)}</h3><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}" ${(l.am||[]).includes(a[0])?"checked":""}>${a[1]} ${a[2]}</label>`).join("")}</div><p><button class="btn" id="es">Save</button> <button class="btn alt" style="color:var(--ink)" id="ec">Back</button></p>`;
+      $("#ec").onclick=()=>dash("list");$("#es").onclick=async()=>{await updateDoc(doc(db,"listings",l.id),{am:$$(".amp input:checked").map(i=>i.value)});toast("Updated");dash("list")}})}
   if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${b.phone.replace(/\D/g,"")}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
     $$("[data-b]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"bookings",b.dataset.b),{status:b.dataset.s}).then(()=>toast("Booking "+b.dataset.s)))}
   const T=x=>x?.toDate?x.toDate():null,fm=d=>d?d.toLocaleDateString()+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
@@ -227,6 +230,9 @@ function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord d
   if(tab==="ten"){const a=UL.filter(u=>u.role==="tenant"&&u.id!==AD?.uid);c.innerHTML=`<p class="mut">${a.length} tenant(s)</p>`+a.map(u=>{const bs=B_.filter(b=>b.userId===u.id).sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));return `<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${bs.length} booking request(s)${bs[0]?" · latest: "+esc(bs[0].listingName)+" ("+bs[0].status+")":""}</div></div></div>`}).join("")||`<p class="mut">No tenants have registered yet.</p>`}
   if(tab==="act"){const ev=[...UL.map(u=>({t:T(u.created),m:`👤 ${esc(u.name||u.email)} registered as a ${esc(u.role)}`})),...L_.map(l=>({t:T(l.created),m:`🏠 ${esc(l.ownerName||"A landlord")} listed <b>${esc(l.name)}</b> (${esc(l.area)})`})),...B_.map(b=>({t:T(b.created),m:`📅 ${esc(b.name)} requested <b>${esc(b.listingName)}</b> · ${b.status}`}))].filter(e=>e.t).sort((x,y)=>y.t-x.t).slice(0,60);
     c.innerHTML=ev.length?ev.map(e=>`<div class="li"><div>${e.m}<div class="mut">${fm(e.t)}</div></div></div>`).join(""):`<p class="mut">No activity yet.</p>`}
+  if(tab==="inc"){c.innerHTML=`<p>Options added here appear in every landlord's “What's included” list and on listings. Built in: ${BASE.map(a=>a[1]+" "+a[2]).join(", ")}.</p><div class="row"><div><label>Emoji</label><input id="ie" maxlength="4" placeholder="🛏️"></div><div><label>Name</label><input id="in" placeholder="e.g. Study desk"></div></div><p><button class="btn" id="ia">Add option</button></p>`+(CI.length?CI.map((i,x)=>`<div class="li"><div>${esc(i.e)} ${esc(i.n)}</div><button class="btn bad sm" data-ci="${x}">Remove</button></div>`).join(""):`<p class="mut">No custom options yet.</p>`);
+    $("#ia").onclick=async()=>{const n=$("#in").value.trim();if(!n)return toast("Enter a name");await setDoc(doc(db,"config","inclusions"),{items:[...CI,{k:"c"+Date.now(),e:$("#ie").value.trim()||"✔️",n}]});toast("Option added");dash("inc")};
+    $$("[data-ci]").forEach(b=>b.onclick=async()=>{await setDoc(doc(db,"config","inclusions"),{items:CI.filter((_,x)=>x!=b.dataset.ci)});dash("inc")})}
   if(tab==="xfer"){c.innerHTML=`<p>You are the only admin. Enter the email of the person who should take over. They log in with that email and tap <b>Accept admin role</b>. You stay admin until they accept.</p>${AD?.transferTo?`<p><span class="st">Pending: ${esc(AD.transferTo)}</span></p>`:""}<input id="xe" type="email" placeholder="new-admin@email.com"><p><button class="btn" id="xs">Send transfer</button> ${AD?.transferTo?`<button class="btn alt" style="color:var(--ink)" id="xc">Cancel transfer</button>`:""}</p>`;
     $("#xs").onclick=()=>{const e=$("#xe").value.trim().toLowerCase();if(!e.includes("@"))return toast("Enter a valid email");if(confirm("Hand admin over to "+e+"?"))updateDoc(doc(db,"config","admin"),{transferTo:e}).then(()=>{toast("Transfer sent");dash("xfer")})};
     $("#xc")&&($("#xc").onclick=()=>updateDoc(doc(db,"config","admin"),{transferTo:deleteField()}).then(()=>dash("xfer")))}
