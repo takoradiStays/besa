@@ -117,9 +117,9 @@ $$("[data-close]").forEach(b=>b.onclick=shut);$$(".modal").forEach(m=>m.onclick=
 /* ---- Firebase ---- */
 let db,auth;
 if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
-  onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()});
-  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();gate(!u);
-    if(u){const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
+  let unsubL=()=>{};
+  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();unsubL();gate(!u);
+    if(u){unsubL=onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
       unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},()=>{AD={none:true};calc()})}
     else calc()});
 }else{L_=SAMPLE}
@@ -192,7 +192,7 @@ $("#ag").onclick=async()=>{if(!live)return toast("Add your Firebase config first
 $("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
   try{const e=$("#ae").value.trim(),p=$("#ap").value;
     if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:$("#ar").value,email:e});base=$("#ar").value;U={...c.user,displayName:$("#an").value};calc()}
-    else await signInWithEmailAndPassword(auth,e,p);shut();toast("You're in")}catch(x){toast(x.message.replace("Firebase: ",""))}};
+    else await signInWithEmailAndPassword(auth,e,p);shut();toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords: tap Create an account first.":x.message.replace("Firebase: ",""))}};
 function nav(){const n=$("#nav");
   n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
   $("#nd")&&($("#nd").onclick=()=>dash("list"));
