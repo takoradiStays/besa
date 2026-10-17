@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Takoradi Stays – hostels, rooms & houses</title>
+<title>Besa – hostels, rooms & houses in Takoradi</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
@@ -57,11 +57,12 @@ input,select,textarea{width:100%;padding:10px 12px;border:2px solid var(--line);
 .st{font-size:12px;border-radius:99px;padding:1px 9px;background:var(--crane)}
 body.locked>header,body.locked>.hero,body.locked>main,body.locked>footer{display:none}
 #m-auth.gate{background:linear-gradient(180deg,var(--ink),#134a5a)}#m-auth.gate .x{display:none}
+.pay{background:var(--foam);border-radius:14px;padding:4px 14px;margin:10px 0}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 22px;border-radius:99px;z-index:5000;display:none}
 footer{text-align:center;padding:26px;color:var(--mut)}
 @media(max-width:860px){.split{grid-template-columns:1fr}#map{position:relative;top:0;height:340px;order:-1}.ship{display:none}.row{grid-template-columns:1fr}}
-</style></head><body class="locked">
-<header><div class="logo">Takoradi<b>Stays</b> ⚓</div><nav id="nav"></nav></header>
+</style></head><body>
+<header><div class="logo">Be<b>sa</b> ⚓</div><nav id="nav"></nav></header>
 
 <section class="hero">
   <h1>Find your room in Takoradi before the ship leaves.</h1>
@@ -75,11 +76,11 @@ footer{text-align:center;padding:26px;color:var(--mut)}
   <div class="bar" id="bar"></div>
   <div class="split"><div><div id="info" class="mut" style="margin-bottom:10px"></div><div class="grid" id="grid"></div></div><div id="map"></div></div>
 </main>
-<footer>Takoradi Stays · Always visit a place and meet the landlord before paying.</footer>
+<footer>Besa · Always visit a place and meet the landlord before paying.</footer>
 
 <div class="modal" id="m-view"><div class="sheet" id="v"></div></div>
-<div class="modal show gate" id="m-auth"><div class="sheet" style="width:min(440px,100%)"><button class="x" data-close>×</button>
-  <div class="logo" style="font-size:28px">Takoradi<b style="color:var(--sea)">Stays</b> ⚓</div>
+<div class="modal" id="m-auth"><div class="sheet" style="width:min(440px,100%)"><button class="x" data-close>×</button>
+  <div class="logo" style="font-size:28px">Be<b style="color:var(--sea)">sa</b> ⚓</div>
   <h2 id="at">Find a place to stay</h2>
   <div class="tabs" id="rl"><button class="btn on" data-rl="tenant">I'm looking for a place</button><button class="btn" data-rl="landlord">I'm a landlord</button></div>
   <p class="mut" id="rh"></p>
@@ -101,6 +102,7 @@ import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmail
 const CFG={apiKey:"AIzaSyB1KaaJX90BKZFHmQAsX2aM0NDHMd0KkoU",authDomain:"takoradistays.firebaseapp.com",projectId:"takoradistays",storageBucket:"takoradistays.firebasestorage.app",messagingSenderId:"991765433187",appId:"1:991765433187:web:7a1734cc6796b048f4a156"};
 /* ====== 2. YOUR EMAIL: the only address allowed to claim admin the first time ====== */
 const FIRST_ADMIN="kwamejayamponsah@gmail.com";
+const MIN_PHOTOS=1; /* landlords must upload at least this many photos */
 const live=CFG.apiKey!=="YOUR_API_KEY";
 
 const LM=[["Takoradi Market Circle",4.8975,-1.7600],["Takoradi Technical University",4.9005,-1.7740],["Takoradi Harbour",4.8860,-1.7415],["Takoradi Mall",4.9030,-1.7650],["Effia-Nkwanta Regional Hospital",4.9125,-1.7700],["Takoradi Railway Station",4.8940,-1.7570],["Apremdo",4.9100,-1.7850],["Effiakuma",4.9020,-1.7900],["Kojokrom",4.9250,-1.7560],["Anaji",4.9180,-1.7480],["Airport Ridge",4.8960,-1.7740],["Sekondi",4.9340,-1.7137],["Essikado",4.9300,-1.7300],["Kweikuma",4.9060,-1.7440]];
@@ -112,10 +114,11 @@ const SAMPLE=[
 {id:"s2",name:"Twin City Self-contain",type:"Self-contain",area:"Apremdo",price:650,per:"month",rooms:2,am:["water","light","wc","park"],desc:"Tiled self-contain with prepaid meter and tenant parking.",phone:"233200000002",lat:4.9100,lng:-1.7840,images:[]},
 {id:"s3",name:"Sekondi Heights Guest House",type:"Guest house",area:"Sekondi",price:180,per:"night",rooms:9,am:["wifi","ac","sec","gen","kit"],desc:"Quiet guest house with sea breeze, perfect for short stays.",phone:"233200000003",lat:4.9330,lng:-1.7150,images:[]}];
 
-let CI=[],L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},ref=null,ftype="",fmax="",ftxt="",markers=[];
+let pend=null,CI=[],L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},ref=null,ftype="",fmax="",ftxt="",markers=[];
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const toast=t=>{const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",3200)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const wa=n=>{let d=String(n||"").replace(/\D/g,"");if(d.startsWith("00"))d=d.slice(2);else if(d.startsWith("0"))d="233"+d.slice(1);return d};
 const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
 const money=l=>`GH₵ ${Number(l.price).toLocaleString()} / ${l.per}`;
 const open=id=>$(id).classList.add("show"),shut=()=>$$(".modal").forEach(m=>{if(!(m.id==="m-auth"&&document.body.classList.contains("locked")))m.classList.remove("show")});
@@ -124,15 +127,16 @@ $$("[data-close]").forEach(b=>b.onclick=shut);$$(".modal").forEach(m=>m.onclick=
 /* ---- Firebase ---- */
 let db,auth;
 if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
-  let unsubL=()=>{},unsubC=()=>{};
-  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();unsubL();unsubC();gate(!u);
-    if(u){unsubC=onSnapshot(doc(db,"config","inclusions"),s=>{CI=s.data()?.items||[];AM=[...BASE,...CI.map(i=>[i.k,i.e,i.n])];draw()},()=>{});unsubL=onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
+  onSnapshot(doc(db,"config","inclusions"),s=>{CI=s.data()?.items||[];AM=[...BASE,...CI.map(i=>[i.k,i.e,i.n])];draw()},()=>{});
+  onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));
+  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();
+    if(u){const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
       unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},e=>{AD={none:true};calc();toast("Cannot read admin settings ("+e.code+"). Check your Firestore rules.")})}
     else calc()});
 }else{L_=SAMPLE}
 
 function gate(on){document.body.classList.toggle("locked",on);const m=$("#m-auth");m.classList.toggle("gate",on);if(on)m.classList.add("show");else{m.classList.remove("show");setTimeout(()=>map.invalidateSize(),60)}}
-function calc(){const r=U?(AD?.uid===U.uid?"admin":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings()}
+function calc(){const r=U?(AD?.uid===U.uid?"admin":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings();if(U&&pend){const q=pend;pend=null;show(q.id);$("#bn").value=q.n||$("#bn").value;$("#bp").value=q.p;$("#bd").value=q.d;$("#bt").value=q.t;toast("You are in. Tap Send booking request to finish.")}}
 let unsubB=()=>{},unsubU=()=>{},UL=[];
 function watchBookings(){unsubB();unsubU();B_=[];UL=[];if(!live||!U||role==="tenant")return;
   const q=role==="admin"?collection(db,"bookings"):query(collection(db,"bookings"),where("ownerId","==",U.uid));
@@ -177,13 +181,13 @@ function show(id){const l=L_.find(x=>x.id===id);if(!l)return;
   ${l.images?.length?`<div class="gal">${l.images.map(i=>`<img src="${i}" alt="Photo of ${esc(l.name)}">`).join("")}</div>`:""}
   <p>${esc(l.desc)}</p><div class="am">${(l.am||[]).map(k=>{const a=AM.find(x=>x[0]===k);return a?`<span>${a[1]} ${a[2]}</span>`:""}).join("")}</div>
   <p class="price">${money(l)} · ${l.rooms} room(s) available</p>
-  ${!U?`<p><button class="btn" id="gs">Sign in with Gmail to see contact details and book</button></p>`:`<p><a class="btn sea" style="text-decoration:none;display:inline-block" href="https://wa.me/${String(l.phone).replace(/\D/g,"")}?text=${encodeURIComponent("Hello, I saw "+l.name+" on Takoradi Stays. Is it still available?")}" target="_blank" rel="noopener">Chat on WhatsApp</a> <a class="btn alt" style="color:var(--ink);text-decoration:none;display:inline-block" href="tel:${esc(l.phone)}">Call</a></p>
-  <h3>Request a booking</h3><div class="row"><div><label>Your name</label><input id="bn" value="${esc(U?.displayName||"")}"></div><div><label>Phone</label><input id="bp" type="tel"></div></div>
+  ${!U?`<p><button class="btn" id="gs">Sign in with Gmail to see contact and payment details</button></p>`:`<p><a class="btn sea" style="text-decoration:none;display:inline-block" href="https://wa.me/${wa(l.phone)}?text=${encodeURIComponent("Hello, I saw "+l.name+" on Besa. Is it still available?")}" target="_blank" rel="noopener">Chat on WhatsApp</a> <a class="btn alt" style="color:var(--ink);text-decoration:none;display:inline-block" href="tel:${esc(l.phone)}">Call</a></p>
+  ${payBox(l)}`}<h3>Request a booking</h3><div class="row"><div><label>Your name</label><input id="bn" value="${esc(U?.displayName||"")}"></div><div><label>Phone</label><input id="bp" type="tel"></div></div>
   <div class="row"><div><label>Move-in date</label><input id="bd" type="date"></div><div><label>Note (optional)</label><input id="bt" placeholder="e.g. 2 students"></div></div>
-  <p><button class="btn" id="bs">Send booking request</button></p>`}`;
+  <p><button class="btn" id="bs">Send booking request</button></p>`;
   $("#v .x").onclick=shut;$("#bs")&&($("#bs").onclick=()=>book(l));$("#gs")&&($("#gs").onclick=()=>{shut();signup=false;authMode();open("#m-auth")});open("#m-view");map.flyTo([l.lat,l.lng],16)}
 async function book(l){const b={listingId:l.id,listingName:l.name,ownerId:l.owner||"demo",name:$("#bn").value.trim(),phone:$("#bp").value.trim(),date:$("#bd").value,note:$("#bt").value.trim(),status:"pending",userId:U?.uid||null,userEmail:U?.email||""};
-  if(!U)return toast("Sign in with Gmail first");
+  if(!U){pend={id:l.id,n:$("#bn").value,p:$("#bp").value,d:$("#bd").value,t:$("#bt").value};shut();signup=false;want="tenant";authMode();open("#m-auth");return toast("Register or sign in with your Gmail to send your request")}
   if(!b.name||!b.phone||!b.date)return toast("Add your name, phone and move-in date");
   if(!live)return toast("Demo mode: connect Firebase to save bookings");
   await addDoc(collection(db,"bookings"),{...b,created:serverTimestamp()});shut();toast("Request sent. The landlord will contact you.")}
@@ -201,29 +205,36 @@ $("#ag").onclick=async()=>{if(!live)return toast("Add your Firebase config first
   try{const c=await signInWithPopup(auth,new GoogleAuthProvider());
     if(!/@gmail\.com$/i.test(c.user.email||"")){await signOut(auth);return toast("Please use a Gmail account")}
     const d=doc(db,"users",c.user.uid);if(!(await getDoc(d)).exists()){await setDoc(d,{name:c.user.displayName||"",role:want,email:c.user.email,created:serverTimestamp()});base=want;calc()}
-    shut();toast("Welcome, "+(c.user.displayName||"friend"))}catch(x){toast(x.message.replace("Firebase: ",""))}};
+    $("#m-auth").classList.remove("show");toast("Welcome, "+(c.user.displayName||"friend"))}catch(x){toast(x.message.replace("Firebase: ",""))}};
 $("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
   try{const e=$("#ae").value.trim(),p=$("#ap").value;
     if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:"landlord",email:e,created:serverTimestamp()});base="landlord";U={...c.user,displayName:$("#an").value};calc()}
-    else await signInWithEmailAndPassword(auth,e,p);shut();toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords: tap Create an account first.":x.message.replace("Firebase: ",""))}};
+    else await signInWithEmailAndPassword(auth,e,p);$("#m-auth").classList.remove("show");toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords: tap Create an account first.":x.message.replace("Firebase: ",""))}};
 function nav(){const n=$("#nav");
   n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
   $("#nd")&&($("#nd").onclick=()=>dash("list"));
   $("#nc")&&($("#nc").onclick=()=>setDoc(doc(db,"config","admin"),{uid:U.uid}).then(()=>toast("You are now the admin")).catch(e=>toast(e.code==="permission-denied"?"Permission denied. Either admin is already claimed, or the email in your Firestore rules is not "+FIRST_ADMIN:"Could not claim admin: "+e.message)));
   $("#na")&&($("#na").onclick=()=>updateDoc(doc(db,"config","admin"),{uid:U.uid,transferTo:deleteField()}).then(()=>toast("You are now the admin")));$("#no")&&($("#no").onclick=()=>signOut(auth));
-  $("#nl")&&($("#nl").onclick=()=>{signup=false;authMode();open("#m-auth")});$("#nj")&&($("#nj").onclick=()=>{signup=true;authMode();open("#m-auth")})}
+  $("#nl")&&($("#nl").onclick=()=>{signup=false;authMode();open("#m-auth")});$("#nj")&&($("#nj").onclick=()=>{signup=true;want="landlord";authMode();open("#m-auth")})}
 
 /* ---- Dashboard ---- */
 function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord dashboard";
   $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],["inc","What's included"],["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
   const mine=role==="admin"?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
-  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
+  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn alt sm" style="color:var(--ink)" data-ep="${l.id}">Payment details</button><button class="btn alt sm" style="color:var(--ink)" data-eph="${l.id}">Edit photos</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
     $$("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this listing?")){await deleteDoc(doc(db,"listings",b.dataset.d));toast("Listing removed")}});
     $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})});
     $$("[data-ei]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.ei);c.innerHTML=`<h3>What's included at ${esc(l.name)}</h3><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}" ${(l.am||[]).includes(a[0])?"checked":""}>${a[1]} ${a[2]}</label>`).join("")}</div><p><button class="btn" id="es">Save</button> <button class="btn alt" style="color:var(--ink)" id="ec">Back</button></p>`;
-      $("#ec").onclick=()=>dash("list");$("#es").onclick=async()=>{await updateDoc(doc(db,"listings",l.id),{am:$$(".amp input:checked").map(i=>i.value)});toast("Updated");dash("list")}})}
-  if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${b.phone.replace(/\D/g,"")}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
+      $("#ec").onclick=()=>dash("list");$("#es").onclick=async()=>{await updateDoc(doc(db,"listings",l.id),{am:$$(".amp input:checked").map(i=>i.value)});toast("Updated");dash("list")}});
+    $$("[data-ep]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.ep);c.innerHTML=`<h3>Payment details for ${esc(l.name)}</h3>${payFields(l.pay||{})}<p><button class="btn" id="ps">Save</button> <button class="btn alt" style="color:var(--ink)" id="pc">Back</button></p>`;
+      $("#pc").onclick=()=>dash("list");$("#ps").onclick=async()=>{const p=readPay(),m=payMsg(p);if(m)return toast(m);await updateDoc(doc(db,"listings",l.id),{pay:p});toast("Payment details saved");dash("list")}});
+    $$("[data-eph]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.eph);let im=[...(l.images||[])];
+      const paint=()=>{$("#pg").innerHTML=im.map((i,x)=>`<div style="position:relative"><img src="${i}" style="height:100px;border-radius:10px" alt=""><button class="x" style="width:26px;height:26px;font-size:15px;top:4px;right:4px" data-rm="${x}" aria-label="Remove photo">×</button></div>`).join("")||`<p class="mut">No photos yet.</p>`;$$("[data-rm]").forEach(k=>k.onclick=()=>{im.splice(+k.dataset.rm,1);paint()})};
+      c.innerHTML=`<h3>Photos for ${esc(l.name)}</h3><div class="gal" id="pg"></div><label>Add photos (max 4 in total)</label><input id="pf" type="file" accept="image/*" multiple><p><button class="btn" id="phs">Save</button> <button class="btn alt" style="color:var(--ink)" id="phc">Back</button></p>`;paint();
+      $("#pf").onchange=async e=>{for(const f of [...e.target.files]){if(im.length>=4){toast("Maximum 4 photos");break}im.push(await shrink(f))}e.target.value="";paint()};
+      $("#phc").onclick=()=>dash("list");$("#phs").onclick=async()=>{if(im.length<MIN_PHOTOS)return toast("Keep at least "+MIN_PHOTOS+" photo"+(MIN_PHOTOS>1?"s":""));await updateDoc(doc(db,"listings",l.id),{images:im});toast("Photos updated");dash("list")}})}
+  if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${wa(b.phone)}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
     $$("[data-b]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"bookings",b.dataset.b),{status:b.dataset.s}).then(()=>toast("Booking "+b.dataset.s)))}
   const T=x=>x?.toDate?x.toDate():null,fm=d=>d?d.toLocaleDateString()+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
   if(tab==="land"){const a=UL.filter(u=>u.role==="landlord");c.innerHTML=`<p class="mut">${a.length} landlord(s)</p>`+a.map(u=>{const ls=L_.filter(l=>l.owner===u.id),bs=B_.filter(b=>b.ownerId===u.id);return `<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${ls.length} listing(s) · ${bs.length} booking request(s), ${bs.filter(b=>b.status==="confirmed").length} confirmed</div></div></div>`}).join("")||`<p class="mut">No landlords have registered yet.</p>`}
@@ -239,22 +250,30 @@ function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord d
   if(tab==="add")addForm();open("#m-dash")}
 let pickMap,pickMk,pimgs=[];
 function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Name of hostel / house</label><input id="fn"></div><div><label>Type</label><select id="ftp">${TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div></div>
-<div class="row"><div><label>Area or town</label><input id="fa" placeholder="e.g. Apremdo, Sekondi"></div><div><label>Contact / WhatsApp number</label><input id="fp" placeholder="233..."></div></div>
+<div class="row"><div><label>Area or town</label><input id="fa" placeholder="e.g. Apremdo, Sekondi"></div><div><label>Contact / WhatsApp number</label><input id="fp" placeholder="0241234567"></div></div>
 <div class="row"><div><label>Price (GH₵)</label><input id="fpr" type="number"></div><div><label>Per</label><select id="fper"><option>year</option><option>semester</option><option>month</option><option>night</option></select></div></div>
 <div class="row"><div><label>Rooms available</label><input id="fr" type="number" value="1"></div><div></div></div>
 <label>What's included</label><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}">${a[1]} ${a[2]}</label>`).join("")}</div>
 <label>Description (rules, deposit, distance to campus…)</label><textarea id="fd" rows="3"></textarea>
-<label>Photos (up to 4)</label><input id="fi" type="file" accept="image/*" multiple><div class="gal" id="prev"></div>
+<h3>How tenants pay you</h3>${payFields({})}<label>Photos (at least ${MIN_PHOTOS}, up to 4) *</label><input id="fi" type="file" accept="image/*" multiple><div class="gal" id="prev"></div>
 <label>Tap the map to pin the exact spot</label><div id="pick"></div><p><button class="btn" id="fs">Publish listing</button></p>`;
   setTimeout(()=>{pickMap&&pickMap.remove();pickMap=L.map("pick").setView([4.9,-1.76],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(pickMap);pickMk=null;
     pickMap.on("click",e=>{pickMk?pickMk.setLatLng(e.latlng):pickMk=L.marker(e.latlng).addTo(pickMap)})},60);
   $("#fi").onchange=async e=>{pimgs=[];for(const f of [...e.target.files].slice(0,4))pimgs.push(await shrink(f));$("#prev").innerHTML=pimgs.map(i=>`<img src="${i}" style="height:90px">`).join("")};
   $("#fs").onclick=async()=>{const g=id=>$(id).value.trim(),n=g("#fn");
     if(!n||!g("#fpr")||!g("#fp")||!pickMk)return toast("Add a name, price, phone and pin the location");
+    if(pimgs.length<MIN_PHOTOS)return toast("Please upload at least "+MIN_PHOTOS+" photo"+(MIN_PHOTOS>1?"s":"")+" of your place");
+    {const m=payMsg(readPay());if(m)return toast(m)}
     if(!live)return toast("Demo mode: connect Firebase to publish");
-    const p=pickMk.getLatLng();await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),images:pimgs,lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
+    const p=pickMk.getLatLng();await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),images:pimgs,pay:readPay(),lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
     toast("Listing published");dash("list")}}
 function shrink(f){return new Promise(r=>{const i=new Image;i.onload=()=>{const s=Math.min(1,720/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.65))};i.src=URL.createObjectURL(f)})}
+const MOMO=["MTN MoMo","Telecel Cash","AirtelTigo Money"];
+const payFields=p=>`<div class="row"><div><label>MoMo network</label><select id="pmn">${MOMO.map(n=>`<option ${p.momoNet===n?"selected":""}>${n}</option>`).join("")}</select></div><div><label>MoMo number</label><input id="pmo" type="tel" value="${esc(p.momoNo)}" placeholder="0241234567"></div></div><label>Name on MoMo account</label><input id="pmm" value="${esc(p.momoName)}"><div class="row"><div><label>Bank name</label><input id="pb" value="${esc(p.bank)}" placeholder="e.g. GCB, Ecobank"></div><div><label>Bank account number</label><input id="pbo" value="${esc(p.bankNo)}"></div></div><label>Name on bank account</label><input id="pbn" value="${esc(p.bankName)}"><p class="mut">Add a MoMo number, a bank account, or both.</p>`;
+const readPay=()=>({momoNet:$("#pmn").value,momoNo:$("#pmo").value.replace(/\s/g,""),momoName:$("#pmm").value.trim(),bank:$("#pb").value.trim(),bankNo:$("#pbo").value.replace(/\s/g,""),bankName:$("#pbn").value.trim()});
+const payMsg=p=>!p.momoNo&&!p.bankNo?"Add a MoMo number or a bank account so tenants can pay you":p.momoNo&&!/^\d{10}$/.test(p.momoNo)?"MoMo number should be 10 digits, like 0241234567":p.bankNo&&!p.bank?"Add the bank name":"";
+function payBox(l){const p=l.pay||{},a=[];if(p.momoNo)a.push(`<div>📱 <b>${esc(p.momoNet)}</b>: ${esc(p.momoNo)}${p.momoName?" ("+esc(p.momoName)+")":""}</div>`);if(p.bankNo)a.push(`<div>🏦 <b>${esc(p.bank)}</b>: ${esc(p.bankNo)}${p.bankName?" ("+esc(p.bankName)+")":""}</div>`);
+  return a.length?`<div class="pay"><h3>How to pay</h3>${a.join("")}<p class="mut">Besa does not handle payments. Pay the landlord directly, and only after you have visited or confirmed the place.</p></div>`:""}
 authMode();
-if(!live){nav();draw();$("#gd").hidden=false;$("#gdb").onclick=()=>{gate(false);toast("Demo mode: add your Firebase config to go live")}}
+if(!live){nav();draw();setTimeout(()=>toast("Demo mode: add your Firebase config to go live"),600)}
 </script></body></html>
