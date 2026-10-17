@@ -94,9 +94,9 @@ footer{text-align:center;padding:26px;color:var(--mut)}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script type="module">
-import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{initializeApp,deleteApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import{getFirestore,collection,addDoc,deleteDoc,updateDoc,doc,setDoc,getDoc,deleteField,onSnapshot,query,where,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,GoogleAuthProvider,signInWithPopup,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendEmailVerification,GoogleAuthProvider,signInWithPopup,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 /* ====== 1. PASTE YOUR FIREBASE CONFIG HERE (Project settings > Your apps > Web) ====== */
 const CFG={apiKey:"AIzaSyB1KaaJX90BKZFHmQAsX2aM0NDHMd0KkoU",authDomain:"takoradistays.firebaseapp.com",projectId:"takoradistays",storageBucket:"takoradistays.firebasestorage.app",messagingSenderId:"991765433187",appId:"1:991765433187:web:7a1734cc6796b048f4a156"};
@@ -130,17 +130,18 @@ if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
   onSnapshot(doc(db,"config","inclusions"),s=>{CI=s.data()?.items||[];AM=[...BASE,...CI.map(i=>[i.k,i.e,i.n])];draw()},()=>{});
   onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));
   onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();
-    if(u){const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
+    if(u){if((await getDoc(doc(db,"blocked",u.uid))).exists()){await signOut(auth);toast("This account has been removed by the admin.");return}
+    const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
       unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},e=>{AD={none:true};calc();toast("Cannot read admin settings ("+e.code+"). Check your Firestore rules.")})}
     else calc()});
 }else{L_=SAMPLE}
 
 function gate(on){document.body.classList.toggle("locked",on);const m=$("#m-auth");m.classList.toggle("gate",on);if(on)m.classList.add("show");else{m.classList.remove("show");setTimeout(()=>map.invalidateSize(),60)}}
 function calc(){const r=U?(AD?.uid===U.uid?"admin":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings();if(U&&pend){const q=pend;pend=null;show(q.id);$("#bn").value=q.n||$("#bn").value;$("#bp").value=q.p;$("#bd").value=q.d;$("#bt").value=q.t;toast("You are in. Tap Send booking request to finish.")}}
-let unsubB=()=>{},unsubU=()=>{},UL=[];
-function watchBookings(){unsubB();unsubU();B_=[];UL=[];if(!live||!U||role==="tenant")return;
+let unsubB=()=>{},unsubU=()=>{},UL=[],BL=[];
+function watchBookings(){unsubB();unsubU();B_=[];UL=[];BL=[];if(!live||!U||role==="tenant")return;
   const q=role==="admin"?collection(db,"bookings"):query(collection(db,"bookings"),where("ownerId","==",U.uid));
-  if(role==="admin")unsubU=onSnapshot(collection(db,"users"),s=>{UL=s.docs.map(d=>({id:d.id,...d.data()}))});
+  if(role==="admin"){const a=onSnapshot(collection(db,"users"),s=>{UL=s.docs.map(d=>({id:d.id,...d.data()}))}),b=onSnapshot(collection(db,"blocked"),s=>{BL=s.docs.map(d=>({id:d.id,...d.data()}))});unsubU=()=>{a();b()}}
   unsubB=onSnapshot(q,s=>{B_=s.docs.map(d=>({id:d.id,...d.data()}));nav()})}
 
 /* ---- Map ---- */
@@ -194,7 +195,7 @@ async function book(l){const b={listingId:l.id,listingName:l.name,ownerId:l.owne
 
 /* ---- Auth ---- */
 let signup=false,want="tenant";
-function authMode(){const ll=want==="landlord";$("#ef").hidden=!ll;$("#nmw").hidden=!(ll&&signup);
+function authMode(){const ll=want==="landlord";if(!ll)signup=false;$("#ef").hidden=false;$("#aswap").hidden=!ll;$("#nmw").hidden=!(ll&&signup);
   $("#at").textContent=ll?(signup?"Register as a landlord":"Landlord log in"):"Find a place to stay";
   $("#rh").textContent=ll?"List your hostels and houses and get booking requests. Gmail users can also continue with Google.":"Sign in or register with your Gmail. A new account is created automatically.";
   $("#asub").textContent=signup?"Register":"Log in";$("#aswap").textContent=signup?"I have an account":"Create an account";
@@ -237,8 +238,17 @@ function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord d
   if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${wa(b.phone)}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
     $$("[data-b]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"bookings",b.dataset.b),{status:b.dataset.s}).then(()=>toast("Booking "+b.dataset.s)))}
   const T=x=>x?.toDate?x.toDate():null,fm=d=>d?d.toLocaleDateString()+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
-  if(tab==="land"){const a=UL.filter(u=>u.role==="landlord");c.innerHTML=`<p class="mut">${a.length} landlord(s)</p>`+a.map(u=>{const ls=L_.filter(l=>l.owner===u.id),bs=B_.filter(b=>b.ownerId===u.id);return `<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${ls.length} listing(s) · ${bs.length} booking request(s), ${bs.filter(b=>b.status==="confirmed").length} confirmed</div></div></div>`}).join("")||`<p class="mut">No landlords have registered yet.</p>`}
-  if(tab==="ten"){const a=UL.filter(u=>u.role==="tenant"&&u.id!==AD?.uid);c.innerHTML=`<p class="mut">${a.length} tenant(s)</p>`+a.map(u=>{const bs=B_.filter(b=>b.userId===u.id).sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));return `<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${bs.length} booking request(s)${bs[0]?" · latest: "+esc(bs[0].listingName)+" ("+bs[0].status+")":""}</div></div></div>`}).join("")||`<p class="mut">No tenants have registered yet.</p>`}
+  if(tab==="land"||tab==="ten"){const rl=tab==="land"?"landlord":"tenant",a=UL.filter(u=>u.role===rl&&u.id!==AD?.uid),rm=BL.filter(b=>b.role===rl);
+    const info=u=>{if(rl==="landlord"){const ls=L_.filter(l=>l.owner===u.id),bs=B_.filter(b=>b.ownerId===u.id);return `${ls.length} listing(s) · ${bs.length} booking request(s), ${bs.filter(b=>b.status==="confirmed").length} confirmed`}
+      const bs=B_.filter(b=>b.userId===u.id).sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));return `${bs.length} booking request(s)${bs[0]?" · latest: "+esc(bs[0].listingName)+" ("+bs[0].status+")":""}`};
+    c.innerHTML=`<p><button class="btn sea sm" id="pa">+ Add a ${rl}</button> <span class="mut">${a.length} registered</span></p><div id="paf" hidden><div class="row"><div><label>Name</label><input id="pn"></div><div><label>${rl==="tenant"?"Gmail address":"Email"}</label><input id="pe" type="email"></div></div><label>Temporary password (6+ characters)</label><input id="pw"><p class="mut">They log in with this email and password. A verification email is also sent to them.</p><p><button class="btn" id="ps2">Create account</button></p></div>`
+      +(a.map(u=>`<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${info(u)}</div></div><button class="btn bad sm" data-rp="${u.id}">Remove</button></div>`).join("")||`<p class="mut">No ${rl}s yet.</p>`)
+      +(rm.length?`<h3>Removed accounts</h3>`+rm.map(b=>`<div class="li"><div>${esc(b.name||b.email)}<div class="mut">${esc(b.email)}</div></div><button class="btn sm" data-rs="${b.id}">Restore</button></div>`).join(""):"");
+    $("#pa").onclick=()=>{$("#paf").hidden=!$("#paf").hidden};
+    $("#ps2").onclick=async()=>{const n=$("#pn").value.trim(),e=$("#pe").value.trim().toLowerCase(),w=$("#pw").value;if(!n||!e||w.length<6)return toast("Enter a name, an email and a password of 6 or more characters");if(rl==="tenant"&&!/@gmail\.com$/.test(e))return toast("Tenants need a Gmail address");
+      try{await addPerson(n,e,w,rl);toast("Account created");dash(tab)}catch(x){toast(x.message.replace("Firebase: ",""))}};
+    $$("[data-rp]").forEach(b=>b.onclick=()=>removePerson(UL.find(u=>u.id===b.dataset.rp)).then(()=>dash(tab)));
+    $$("[data-rs]").forEach(b=>b.onclick=()=>restore(BL.find(x=>x.id===b.dataset.rs)).then(()=>dash(tab)))}
   if(tab==="act"){const ev=[...UL.map(u=>({t:T(u.created),m:`👤 ${esc(u.name||u.email)} registered as a ${esc(u.role)}`})),...L_.map(l=>({t:T(l.created),m:`🏠 ${esc(l.ownerName||"A landlord")} listed <b>${esc(l.name)}</b> (${esc(l.area)})`})),...B_.map(b=>({t:T(b.created),m:`📅 ${esc(b.name)} requested <b>${esc(b.listingName)}</b> · ${b.status}`}))].filter(e=>e.t).sort((x,y)=>y.t-x.t).slice(0,60);
     c.innerHTML=ev.length?ev.map(e=>`<div class="li"><div>${e.m}<div class="mut">${fm(e.t)}</div></div></div>`).join(""):`<p class="mut">No activity yet.</p>`}
   if(tab==="inc"){c.innerHTML=`<p>Options added here appear in every landlord's “What's included” list and on listings. Built in: ${BASE.map(a=>a[1]+" "+a[2]).join(", ")}.</p><div class="row"><div><label>Emoji</label><input id="ie" maxlength="4" placeholder="🛏️"></div><div><label>Name</label><input id="in" placeholder="e.g. Study desk"></div></div><p><button class="btn" id="ia">Add option</button></p>`+(CI.length?CI.map((i,x)=>`<div class="li"><div>${esc(i.e)} ${esc(i.n)}</div><button class="btn bad sm" data-ci="${x}">Remove</button></div>`).join(""):`<p class="mut">No custom options yet.</p>`);
@@ -268,6 +278,12 @@ function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Nam
     const p=pickMk.getLatLng();await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),images:pimgs,pay:readPay(),lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
     toast("Listing published");dash("list")}}
 function shrink(f){return new Promise(r=>{const i=new Image;i.onload=()=>{const s=Math.min(1,720/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.65))};i.src=URL.createObjectURL(f)})}
+async function addPerson(name,email,pw,rl){const a2=initializeApp(CFG,"adm"+Date.now()),au=getAuth(a2);
+  try{const c=await createUserWithEmailAndPassword(au,email,pw);await setDoc(doc(db,"users",c.user.uid),{name,role:rl,email,created:serverTimestamp()});await sendEmailVerification(c.user).catch(()=>{});await signOut(au)}finally{deleteApp(a2)}}
+async function removePerson(u){if(!u||!confirm("Remove "+(u.name||u.email)+"?"+(u.role==="landlord"?" Their listings will be deleted too.":"")+" They will be signed out and blocked."))return;
+  for(const l of L_.filter(l=>l.owner===u.id))await deleteDoc(doc(db,"listings",l.id));
+  await setDoc(doc(db,"blocked",u.id),{email:u.email||"",name:u.name||"",role:u.role,at:serverTimestamp()});await deleteDoc(doc(db,"users",u.id));toast("Account removed")}
+async function restore(b){if(!b)return;await setDoc(doc(db,"users",b.id),{name:b.name||"",role:b.role,email:b.email||"",created:serverTimestamp()});await deleteDoc(doc(db,"blocked",b.id));toast("Account restored")}
 const MOMO=["MTN MoMo","Telecel Cash","AirtelTigo Money"];
 const payFields=p=>`<div class="row"><div><label>MoMo network</label><select id="pmn">${MOMO.map(n=>`<option ${p.momoNet===n?"selected":""}>${n}</option>`).join("")}</select></div><div><label>MoMo number</label><input id="pmo" type="tel" value="${esc(p.momoNo)}" placeholder="0241234567"></div></div><label>Name on MoMo account</label><input id="pmm" value="${esc(p.momoName)}"><div class="row"><div><label>Bank name</label><input id="pb" value="${esc(p.bank)}" placeholder="e.g. GCB, Ecobank"></div><div><label>Bank account number</label><input id="pbo" value="${esc(p.bankNo)}"></div></div><label>Name on bank account</label><input id="pbn" value="${esc(p.bankName)}"><p class="mut">Add a MoMo number, a bank account, or both.</p>`;
 const readPay=()=>({momoNet:$("#pmn").value,momoNo:$("#pmo").value.replace(/\s/g,""),momoName:$("#pmm").value.trim(),bank:$("#pb").value.trim(),bankNo:$("#pbo").value.replace(/\s/g,""),bankName:$("#pbn").value.trim()});
