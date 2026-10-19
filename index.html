@@ -201,6 +201,30 @@ function show(id){const l=L_.find(x=>x.id===id);if(!l)return;
   <p><button class="btn alt sm" style="color:var(--ink)" id="rpt">🚩 Report this listing</button></p>`;
   $("#v .x").onclick=shut;$("#bs")&&($("#bs").onclick=()=>book(l));$("#rpt").onclick=()=>report(l);$("#gs")&&($("#gs").onclick=()=>{shut();signup=false;authMode();open("#m-auth")});open("#m-view");map.flyTo([l.lat,l.lng],16);
   if(live&&l.thumb&&!l.images?.length)getDoc(doc(db,"listings",l.id,"photos","all")).then(d=>{const im=d.data()?.images;if(im?.length&&$("#gl"))$("#gl").innerHTML=im.map(i=>`<img src="${i}" alt="Photo of ${esc(l.name)}">`).join("")}).catch(()=>{})}
+async function pinSearch(){const v=$("#ps1").value.trim();if(!v||!pickMap)return;
+  const m=LM.find(l=>l[0].toLowerCase()===v.toLowerCase())||LM.find(l=>l[0].toLowerCase().includes(v.toLowerCase()));let la,ln;
+  if(m){la=m[1];ln=m[2]}else{try{const r=await(await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&viewbox=-1.9,5.0,-1.6,4.8&q="+encodeURIComponent(v+", Takoradi, Ghana"))).json();if(r[0]){la=+r[0].lat;ln=+r[0].lon}}catch{}}
+  if(la==null)return toast("Could not find that place. Try a nearby landmark, or tap the map.");
+  const ll=L.latLng(la,ln);pickMap.setView(ll,16);pickMk?pickMk.setLatLng(ll):pickMk=L.marker(ll).addTo(pickMap);toast("Pin placed. Tap the map to move it exactly.")}
+let rvMap;
+async function review(id){const l=L_.find(x=>x.id===id),c=$("#dc");if(!l)return;
+  let im=l.images||[];if(!im.length&&l.thumb){try{im=(await getDoc(doc(db,"listings",id,"photos","all"))).data()?.images||[]}catch{}}
+  const o=UL.find(u=>u.id===l.owner)||{},p=l.pay||{},ph=im.length?im:(l.thumb?[l.thumb]:[]),fl=[];
+  if(!im.length)fl.push("No full photos found");else if(im.length<3)fl.push("Only "+im.length+" photo(s)");
+  if(!p.momoNo&&!p.bankNo)fl.push("No payment details");if(!/^233\d{9}$/.test(wa(l.phone)))fl.push("Phone number looks wrong");
+  if(!l.desc||l.desc.length<20)fl.push("Very short description");if(!o.email)fl.push("Landlord profile not found");
+  const nr=LM.map(x=>[x[0],km(x[1],x[2],l.lat,l.lng)]).sort((a,b)=>a[1]-b[1])[0];if(nr&&nr[1]>25)fl.push("Pin is "+nr[1].toFixed(0)+" km from the nearest Takoradi landmark");
+  c.innerHTML=`<p><button class="btn alt sm" style="color:var(--ink)" id="rvb">Back to listings</button></p><h3>${esc(l.name)}</h3><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)} · ${l.rooms} room(s)</div>
+  <div class="gal">${ph.map(i=>`<img src="${i}" alt="">`).join("")||"<p class='mut'>No photos</p>"}</div><p>${esc(l.desc)}</p>
+  <div class="am">${(l.am||[]).map(k=>{const a=AM.find(x=>x[0]===k);return a?`<span>${a[1]} ${a[2]}</span>`:""}).join("")}</div>
+  <div class="pay"><b>Landlord</b><div>${esc(o.name||l.ownerName||"")} · ${esc(o.email||"")}</div><div>Phone on listing: ${esc(l.phone)}</div>${p.momoNo?`<div>📱 ${esc(p.momoNet)}: ${esc(p.momoNo)} (${esc(p.momoName)})</div>`:""}${p.bankNo?`<div>🏦 ${esc(p.bank)}: ${esc(p.bankNo)} (${esc(p.bankName)})</div>`:""}</div>
+  <div id="rvm" style="height:200px;border-radius:14px;margin:8px 0"></div>
+  ${fl.length?`<div class="pay" style="background:#fff3cd"><b>Things to check</b><br>${fl.map(f=>"⚠️ "+esc(f)).join("<br>")}</div>`:`<p class="mut">✅ No automatic warnings.</p>`}
+  <p><button class="btn sea" id="rva">Approve</button> <button class="btn bad" id="rvr">Reject with reason</button></p>`;
+  setTimeout(()=>{try{rvMap&&rvMap.remove()}catch{}rvMap=L.map("rvm").setView([l.lat,l.lng],16);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(rvMap);L.marker([l.lat,l.lng]).addTo(rvMap);setTimeout(()=>rvMap.invalidateSize(),300)},60);
+  $("#rvb").onclick=()=>dash("list");
+  $("#rva").onclick=async()=>{try{await updateDoc(doc(db,"listings",id),{status:"approved",rejectReason:deleteField()});toast("Approved. It is now live.");dash("list")}catch(e){toast("Not allowed: "+e.code)}};
+  $("#rvr").onclick=async()=>{const why=(prompt("Why is this listing being rejected? The landlord will see this.")||"").trim();if(!why)return;try{await updateDoc(doc(db,"listings",id),{status:"rejected",rejectReason:why.slice(0,300)});toast("Rejected");dash("list")}catch(e){toast("Not allowed: "+e.code)}}}
 async function report(l){if(!U){shut();signup=false;want="tenant";authMode();open("#m-auth");return toast("Sign in with your Gmail to report a listing")}
   const reason=(prompt("What is wrong with this listing? (for example: scam, wrong details, not available)")||"").trim();if(!reason)return;
   if(!live)return toast("Demo mode: reports are not saved");
@@ -240,10 +264,11 @@ function nav(){const n=$("#nav");
 function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":role==="mod"?"Moderator panel":"Landlord dashboard";
   $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"||role==="mod"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],...(can("listings")?[["rep","Reports"]]:[]),...(can("inclusions")?[["inc","What's included"]]:[]),...(role==="admin"?[["staff","Moderators"],["xfer","Transfer admin"]]:[])]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
-  const mine=can("listings")?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
-  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${l.status==="pending"?" · ⏳ awaiting approval":l.status==="rejected"?" · ❌ rejected":""}${can("listings")?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button>${can("listings")&&l.status&&l.status!=="approved"?`<button class="btn sea sm" data-ap="${l.id}">Approve</button>`:""}${can("listings")&&l.status==="pending"?`<button class="btn bad sm" data-rj="${l.id}">Reject</button>`:""}<button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn alt sm" style="color:var(--ink)" data-ep="${l.id}">Payment details</button><button class="btn alt sm" style="color:var(--ink)" data-eph="${l.id}">Edit photos</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
+  const mine=(can("listings")?L_:L_.filter(l=>l.owner===U.uid)).slice().sort((a,b)=>(b.status==="pending")-(a.status==="pending"));const c=$("#dc");
+  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${l.status==="pending"?" · ⏳ awaiting approval":l.status==="rejected"?" · ❌ rejected"+(l.rejectReason?": "+esc(l.rejectReason):""):""}${can("listings")?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button>${can("listings")&&l.status==="pending"?`<button class="btn sea sm" data-rv2="${l.id}">Review</button>`:""}${can("listings")&&l.status==="rejected"?`<button class="btn sm" data-ap="${l.id}">Approve</button>`:""}<button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn alt sm" style="color:var(--ink)" data-ep="${l.id}">Payment details</button><button class="btn alt sm" style="color:var(--ink)" data-eph="${l.id}">Edit photos</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
     $$("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this listing?")){await deleteDoc(doc(db,"listings",b.dataset.d));toast("Listing removed")}});
     $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})});
+    $$("[data-rv2]").forEach(b=>b.onclick=()=>review(b.dataset.rv2));
     $$("[data-ap]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"listings",b.dataset.ap),{status:"approved"}).then(()=>{toast("Approved. It is now live.");dash("list")}).catch(e=>toast("Not allowed: "+e.code)));
     $$("[data-rj]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"listings",b.dataset.rj),{status:"rejected"}).then(()=>{toast("Rejected");dash("list")}).catch(e=>toast("Not allowed: "+e.code)));
     $$("[data-ei]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.ei);c.innerHTML=`<h3>What's included at ${esc(l.name)}</h3><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}" ${(l.am||[]).includes(a[0])?"checked":""}>${a[1]} ${a[2]}</label>`).join("")}</div><p><button class="btn" id="es">Save</button> <button class="btn alt" style="color:var(--ink)" id="ec">Back</button></p>`;
@@ -299,8 +324,8 @@ function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Nam
 <label>What's included</label><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}">${a[1]} ${a[2]}</label>`).join("")}</div>
 <label>Description (rules, deposit, distance to campus…)</label><textarea id="fd" rows="3"></textarea>
 <h3>How tenants pay you</h3>${payFields({})}<label>Photos (at least ${MIN_PHOTOS}, up to 4) *</label><input id="fi" type="file" accept="image/*" multiple><div class="gal" id="prev"></div>
-<label>Tap the map to pin the exact spot</label><div id="pick"></div><p><button class="btn" id="fs">Publish listing</button></p>`;
-  setTimeout(()=>{pickMap&&pickMap.remove();pickMap=L.map("pick").setView([4.9,-1.76],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(pickMap);pickMk=null;setTimeout(()=>pickMap.invalidateSize(),300);
+<label>Search a landmark near your place, then tap the map to fine-tune the pin</label><div style="display:flex;gap:8px"><input id="ps1" placeholder="e.g. Takoradi Technical University, Apremdo, Market Circle" list="lmlist"><button class="btn sea sm" type="button" id="psb">Find</button></div><datalist id="lmlist">${LM.map(l=>`<option value="${l[0]}">`).join("")}</datalist><div id="pick"></div><p><button class="btn" id="fs">Publish listing</button></p>`;
+  setTimeout(()=>{pickMap&&pickMap.remove();pickMap=L.map("pick").setView([4.9,-1.76],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(pickMap);pickMk=null;setTimeout(()=>pickMap.invalidateSize(),300);$("#psb").onclick=pinSearch;$("#ps1").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();pinSearch()}};
     pickMap.on("click",e=>{pickMk?pickMk.setLatLng(e.latlng):pickMk=L.marker(e.latlng).addTo(pickMap)})},60);
   $("#fi").onchange=async e=>{pimgs=[];for(const f of [...e.target.files].slice(0,4))pimgs.push(await shrink(f));$("#prev").innerHTML=pimgs.map(i=>`<img src="${i}" style="height:90px">`).join("")};
   $("#fs").onclick=async()=>{const g=id=>$(id).value.trim(),n=g("#fn");
