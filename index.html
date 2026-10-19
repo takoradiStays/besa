@@ -4,7 +4,7 @@
 <title>Besa – hostels, rooms & houses in Takoradi</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css'">
 <style>
 :root{--ink:#0e2a3b;--sea:#1f8a8a;--crane:#f2b632;--foam:#e9f4f0;--card:#fff;--mut:#5b7280;--line:#d5e3de;--bad:#c0392b}
 *{box-sizing:border-box}body{margin:0;font:16px/1.5 Figtree,sans-serif;color:var(--ink);background:var(--foam)}
@@ -92,12 +92,18 @@ footer{text-align:center;padding:26px;color:var(--mut)}
 <div class="modal" id="m-dash"><div class="sheet" style="width:min(900px,100%)"><button class="x" data-close>×</button><h2 id="dt">Dashboard</h2><div class="tabs" id="dtabs"></div><div id="dc"></div></div></div>
 <div id="toast" role="status"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+window.leafletReady=new Promise(res=>{const u=["https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js","https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"];let i=0;
+(function next(){if(window.L)return res(true);if(i>=u.length)return res(false);const s=document.createElement("script");const t=setTimeout(next,6000);s.onload=()=>{clearTimeout(t);res(true)};s.onerror=()=>{clearTimeout(t);next()};s.src=u[i++];document.head.appendChild(s)})()});
+</script>
 <script type="module">
 import{initializeApp,deleteApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import{getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,orderBy,limit,collection,addDoc,deleteDoc,updateDoc,doc,setDoc,getDoc,deleteField,onSnapshot,query,where,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendEmailVerification,GoogleAuthProvider,signInWithPopup,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+await window.leafletReady;
+if(typeof L==="undefined"){const st=new Proxy(function(){},{get:()=>st,apply:()=>st});window.L=st;
+  document.getElementById("map").innerHTML="<p style='padding:24px;text-align:center'>The map could not load because your network blocked the map library. The listings still work. Refresh, or try another network or DNS (such as 1.1.1.1).</p>"}
 /* ====== 1. PASTE YOUR FIREBASE CONFIG HERE (Project settings > Your apps > Web) ====== */
 const CFG={apiKey:"AIzaSyB1KaaJX90BKZFHmQAsX2aM0NDHMd0KkoU",authDomain:"takoradistays.firebaseapp.com",projectId:"takoradistays",storageBucket:"takoradistays.firebasestorage.app",messagingSenderId:"991765433187",appId:"1:991765433187:web:7a1734cc6796b048f4a156"};
 /* ====== 2. YOUR EMAIL: the only address allowed to claim admin the first time ====== */
