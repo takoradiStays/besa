@@ -127,7 +127,7 @@ $$("[data-close]").forEach(b=>b.onclick=shut);$$(".modal").forEach(m=>m.onclick=
 
 /* ---- Firebase ---- */
 let db,auth;
-if(live){const app=initializeApp(CFG);try{db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})})}catch{db=getFirestore(app)}auth=getAuth(app);
+if(live)try{const app=initializeApp(CFG);try{db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})})}catch{db=getFirestore(app)}auth=getAuth(app);
   onSnapshot(doc(db,"config","inclusions"),s=>{CI=s.data()?.items||[];AM=[...BASE,...CI.map(i=>[i.k,i.e,i.n])];draw()},()=>{});
   onSnapshot(query(collection(db,"listings"),orderBy("created","desc"),limit(120)),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));
   onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();SF=null;unsubS();
@@ -136,7 +136,8 @@ if(live){const app=initializeApp(CFG);try{db=initializeFirestore(app,{localCache
     const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
       unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},e=>{AD={none:true};calc();toast("Cannot read admin settings ("+e.code+"). Check your Firestore rules.")})}
     else calc()});
-}else{L_=SAMPLE}
+}catch(e){console.error(e);setTimeout(()=>toast("Could not connect to the database"),500)}
+else{L_=SAMPLE}
 
 function gate(on){document.body.classList.toggle("locked",on);const m=$("#m-auth");m.classList.toggle("gate",on);if(on)m.classList.add("show");else{m.classList.remove("show");setTimeout(()=>map.invalidateSize(),60)}}
 function calc(){const r=U?(AD?.uid===U.uid?"admin":SF?"mod":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings();if(U&&pend){const q=pend;pend=null;show(q.id);$("#bn").value=q.n||$("#bn").value;$("#bp").value=q.p;$("#bd").value=q.d;$("#bt").value=q.t;toast("You are in. Tap Send booking request to finish.")}}
@@ -148,7 +149,9 @@ function watchBookings(){unsubB();unsubU();B_=[];UL=[];BL=[];ST=[];if(!live||!U|
 
 /* ---- Map ---- */
 const map=L.map("map",{scrollWheelZoom:true}).setView([4.9,-1.76],13);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19}).addTo(map);
+let tl=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19}).addTo(map),te=0;
+tl.on("tileerror",()=>{if(++te===8){map.removeLayer(tl);tl=L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{attribution:"© OpenStreetMap contributors © CARTO",subdomains:"abcd",maxZoom:19}).addTo(map);toast("Switched to a backup map")}});
+new ResizeObserver(()=>map.invalidateSize()).observe($("#map"));
 const refIcon=L.divIcon({html:"<div style='font-size:34px'>📍</div>",className:"",iconSize:[34,34],iconAnchor:[17,32]});
 let refMk;
 function setRef(n,lat,lng){ref={n,lat,lng};refMk&&refMk.remove();refMk=L.marker([lat,lng],{icon:refIcon}).addTo(map).bindPopup("<b>"+esc(n)+"</b>").openPopup();map.flyTo([lat,lng],15);draw(true)}
@@ -175,7 +178,7 @@ function draw(){
   const a=view();$("#info").textContent=ref?`${a.length} places, closest to ${ref.n} first`:`${a.length} places in Takoradi and nearby`;
   $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.thumb||l.images?.[0]?`background-image:url(${l.thumb||l.images[0]})`:""}">${l.thumb||l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).filter(k=>AM.some(x=>x[0]===k)).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
   $$(".card").forEach(c=>{c.onclick=()=>show(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter")show(c.dataset.id)}});
-  markers.forEach(m=>m.remove());markers=a.map(l=>L.marker([l.lat,l.lng]).addTo(map).bindPopup(`<b>${esc(l.name)}</b><br>${money(l)}<br><a href="#" data-pop="${l.id}">View details</a>`));
+  markers.forEach(m=>m.remove());markers=a.filter(l=>Number.isFinite(l.lat)&&Number.isFinite(l.lng)).map(l=>L.marker([l.lat,l.lng]).addTo(map).bindPopup(`<b>${esc(l.name)}</b><br>${money(l)}<br><a href="#" data-pop="${l.id}">View details</a>`));
 }
 map.on("popupopen",e=>{const a=e.popup.getElement().querySelector("[data-pop]");a&&(a.onclick=ev=>{ev.preventDefault();show(a.dataset.pop)})});
 
@@ -278,7 +281,7 @@ function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Nam
 <label>Description (rules, deposit, distance to campus…)</label><textarea id="fd" rows="3"></textarea>
 <h3>How tenants pay you</h3>${payFields({})}<label>Photos (at least ${MIN_PHOTOS}, up to 4) *</label><input id="fi" type="file" accept="image/*" multiple><div class="gal" id="prev"></div>
 <label>Tap the map to pin the exact spot</label><div id="pick"></div><p><button class="btn" id="fs">Publish listing</button></p>`;
-  setTimeout(()=>{pickMap&&pickMap.remove();pickMap=L.map("pick").setView([4.9,-1.76],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(pickMap);pickMk=null;
+  setTimeout(()=>{pickMap&&pickMap.remove();pickMap=L.map("pick").setView([4.9,-1.76],13);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(pickMap);pickMk=null;setTimeout(()=>pickMap.invalidateSize(),300);
     pickMap.on("click",e=>{pickMk?pickMk.setLatLng(e.latlng):pickMk=L.marker(e.latlng).addTo(pickMap)})},60);
   $("#fi").onchange=async e=>{pimgs=[];for(const f of [...e.target.files].slice(0,4))pimgs.push(await shrink(f));$("#prev").innerHTML=pimgs.map(i=>`<img src="${i}" style="height:90px">`).join("")};
   $("#fs").onclick=async()=>{const g=id=>$(id).value.trim(),n=g("#fn");
