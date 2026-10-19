@@ -95,7 +95,7 @@ footer{text-align:center;padding:26px;color:var(--mut)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script type="module">
 import{initializeApp,deleteApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,collection,addDoc,deleteDoc,updateDoc,doc,setDoc,getDoc,deleteField,onSnapshot,query,where,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getFirestore,initializeFirestore,persistentLocalCache,persistentMultipleTabManager,orderBy,limit,collection,addDoc,deleteDoc,updateDoc,doc,setDoc,getDoc,deleteField,onSnapshot,query,where,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,sendEmailVerification,GoogleAuthProvider,signInWithPopup,signOut}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 /* ====== 1. PASTE YOUR FIREBASE CONFIG HERE (Project settings > Your apps > Web) ====== */
@@ -114,11 +114,12 @@ const SAMPLE=[
 {id:"s2",name:"Twin City Self-contain",type:"Self-contain",area:"Apremdo",price:650,per:"month",rooms:2,am:["water","light","wc","park"],desc:"Tiled self-contain with prepaid meter and tenant parking.",phone:"233200000002",lat:4.9100,lng:-1.7840,images:[]},
 {id:"s3",name:"Sekondi Heights Guest House",type:"Guest house",area:"Sekondi",price:180,per:"night",rooms:9,am:["wifi","ac","sec","gen","kit"],desc:"Quiet guest house with sea breeze, perfect for short stays.",phone:"233200000003",lat:4.9330,lng:-1.7150,images:[]}];
 
-let pend=null,CI=[],L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},ref=null,ftype="",fmax="",ftxt="",markers=[];
+let pend=null,CI=[],L_=[],B_=[],U=null,role=null,base=null,AD=null,unsubA=()=>{},unsubS=()=>{},SF=null,ST=[],ref=null,ftype="",fmax="",ftxt="",markers=[];
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const toast=t=>{const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",3200)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const wa=n=>{let d=String(n||"").replace(/\D/g,"");if(d.startsWith("00"))d=d.slice(2);else if(d.startsWith("0"))d="233"+d.slice(1);return d};
+const can=p=>role==="admin"||(role==="mod"&&!!SF?.perms?.[p]);
 const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
 const money=l=>`GH₵ ${Number(l.price).toLocaleString()} / ${l.per}`;
 const open=id=>$(id).classList.add("show"),shut=()=>$$(".modal").forEach(m=>{if(!(m.id==="m-auth"&&document.body.classList.contains("locked")))m.classList.remove("show")});
@@ -126,22 +127,23 @@ $$("[data-close]").forEach(b=>b.onclick=shut);$$(".modal").forEach(m=>m.onclick=
 
 /* ---- Firebase ---- */
 let db,auth;
-if(live){const app=initializeApp(CFG);db=getFirestore(app);auth=getAuth(app);
+if(live){const app=initializeApp(CFG);try{db=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})})}catch{db=getFirestore(app)}auth=getAuth(app);
   onSnapshot(doc(db,"config","inclusions"),s=>{CI=s.data()?.items||[];AM=[...BASE,...CI.map(i=>[i.k,i.e,i.n])];draw()},()=>{});
-  onSnapshot(collection(db,"listings"),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));
-  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();
+  onSnapshot(query(collection(db,"listings"),orderBy("created","desc"),limit(120)),s=>{L_=s.docs.map(d=>({id:d.id,...d.data()}));draw()},e=>toast("Could not load listings: "+e.code));
+  onAuthStateChanged(auth,async u=>{U=u;base=null;AD=null;unsubA();SF=null;unsubS();
     if(u){if((await getDoc(doc(db,"blocked",u.uid))).exists()){await signOut(auth);toast("This account has been removed by the admin.");return}
+    unsubS=onSnapshot(doc(db,"staff",u.uid),s=>{SF=s.exists()?s.data():null;calc()},()=>{SF=null;calc()});
     const b=(await getDoc(doc(db,"users",u.uid))).data()?.role||"tenant";base=base||b;
       unsubA=onSnapshot(doc(db,"config","admin"),s=>{AD=s.exists()?s.data():{none:true};calc()},e=>{AD={none:true};calc();toast("Cannot read admin settings ("+e.code+"). Check your Firestore rules.")})}
     else calc()});
 }else{L_=SAMPLE}
 
 function gate(on){document.body.classList.toggle("locked",on);const m=$("#m-auth");m.classList.toggle("gate",on);if(on)m.classList.add("show");else{m.classList.remove("show");setTimeout(()=>map.invalidateSize(),60)}}
-function calc(){const r=U?(AD?.uid===U.uid?"admin":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings();if(U&&pend){const q=pend;pend=null;show(q.id);$("#bn").value=q.n||$("#bn").value;$("#bp").value=q.p;$("#bd").value=q.d;$("#bt").value=q.t;toast("You are in. Tap Send booking request to finish.")}}
+function calc(){const r=U?(AD?.uid===U.uid?"admin":SF?"mod":base==="landlord"?"landlord":"tenant"):null,ch=r!==role;role=r;nav();if(ch)watchBookings();if(U&&pend){const q=pend;pend=null;show(q.id);$("#bn").value=q.n||$("#bn").value;$("#bp").value=q.p;$("#bd").value=q.d;$("#bt").value=q.t;toast("You are in. Tap Send booking request to finish.")}}
 let unsubB=()=>{},unsubU=()=>{},UL=[],BL=[];
-function watchBookings(){unsubB();unsubU();B_=[];UL=[];BL=[];if(!live||!U||role==="tenant")return;
-  const q=role==="admin"?collection(db,"bookings"):query(collection(db,"bookings"),where("ownerId","==",U.uid));
-  if(role==="admin"){const a=onSnapshot(collection(db,"users"),s=>{UL=s.docs.map(d=>({id:d.id,...d.data()}))}),b=onSnapshot(collection(db,"blocked"),s=>{BL=s.docs.map(d=>({id:d.id,...d.data()}))});unsubU=()=>{a();b()}}
+function watchBookings(){unsubB();unsubU();B_=[];UL=[];BL=[];ST=[];if(!live||!U||role==="tenant")return;
+  const q=role==="admin"||role==="mod"?collection(db,"bookings"):query(collection(db,"bookings"),where("ownerId","==",U.uid));
+  if(role==="admin"||role==="mod"){const a=onSnapshot(collection(db,"users"),s=>{UL=s.docs.map(d=>({id:d.id,...d.data()}))}),b=onSnapshot(collection(db,"blocked"),s=>{BL=s.docs.map(d=>({id:d.id,...d.data()}))}),c2=role==="admin"?onSnapshot(collection(db,"staff"),s=>{ST=s.docs.map(d=>({id:d.id,...d.data()}))}):()=>{};unsubU=()=>{a();b();c2()}}
   unsubB=onSnapshot(q,s=>{B_=s.docs.map(d=>({id:d.id,...d.data()}));nav()})}
 
 /* ---- Map ---- */
@@ -171,7 +173,7 @@ function draw(){
   $$("#bar button").forEach(b=>b.onclick=()=>{ftype=b.dataset.t;draw()});
   $("#fx").onchange=e=>{fmax=e.target.value;draw()};$("#ft").onchange=e=>{ftxt=e.target.value;draw()};
   const a=view();$("#info").textContent=ref?`${a.length} places, closest to ${ref.n} first`:`${a.length} places in Takoradi and nearby`;
-  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.images?.[0]?`background-image:url(${l.images[0]})`:""}">${l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).filter(k=>AM.some(x=>x[0]===k)).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
+  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.thumb||l.images?.[0]?`background-image:url(${l.thumb||l.images[0]})`:""}">${l.thumb||l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).filter(k=>AM.some(x=>x[0]===k)).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
   $$(".card").forEach(c=>{c.onclick=()=>show(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter")show(c.dataset.id)}});
   markers.forEach(m=>m.remove());markers=a.map(l=>L.marker([l.lat,l.lng]).addTo(map).bindPopup(`<b>${esc(l.name)}</b><br>${money(l)}<br><a href="#" data-pop="${l.id}">View details</a>`));
 }
@@ -179,14 +181,15 @@ map.on("popupopen",e=>{const a=e.popup.getElement().querySelector("[data-pop]");
 
 function show(id){const l=L_.find(x=>x.id===id);if(!l)return;
   $("#v").innerHTML=`<button class="x" data-close>×</button><span class="st">${esc(l.type)}</span><h2>${esc(l.name)}</h2><div class="mut">📍 ${esc(l.area)}${ref?` · ${km(ref.lat,ref.lng,l.lat,l.lng).toFixed(1)} km from ${esc(ref.n)}`:""}</div>
-  ${l.images?.length?`<div class="gal">${l.images.map(i=>`<img src="${i}" alt="Photo of ${esc(l.name)}">`).join("")}</div>`:""}
+  ${l.images?.length||l.thumb?`<div class="gal" id="gl">${(l.images?.length?l.images:[l.thumb]).map(i=>`<img src="${i}" alt="Photo of ${esc(l.name)}">`).join("")}</div>`:""}
   <p>${esc(l.desc)}</p><div class="am">${(l.am||[]).map(k=>{const a=AM.find(x=>x[0]===k);return a?`<span>${a[1]} ${a[2]}</span>`:""}).join("")}</div>
   <p class="price">${money(l)} · ${l.rooms} room(s) available</p>
   ${!U?`<p><button class="btn" id="gs">Sign in with Gmail to see contact and payment details</button></p>`:`<p><a class="btn sea" style="text-decoration:none;display:inline-block" href="https://wa.me/${wa(l.phone)}?text=${encodeURIComponent("Hello, I saw "+l.name+" on Besa. Is it still available?")}" target="_blank" rel="noopener">Chat on WhatsApp</a> <a class="btn alt" style="color:var(--ink);text-decoration:none;display:inline-block" href="tel:${esc(l.phone)}">Call</a></p>
   ${payBox(l)}`}<h3>Request a booking</h3><div class="row"><div><label>Your name</label><input id="bn" value="${esc(U?.displayName||"")}"></div><div><label>Phone</label><input id="bp" type="tel"></div></div>
   <div class="row"><div><label>Move-in date</label><input id="bd" type="date"></div><div><label>Note (optional)</label><input id="bt" placeholder="e.g. 2 students"></div></div>
   <p><button class="btn" id="bs">Send booking request</button></p>`;
-  $("#v .x").onclick=shut;$("#bs")&&($("#bs").onclick=()=>book(l));$("#gs")&&($("#gs").onclick=()=>{shut();signup=false;authMode();open("#m-auth")});open("#m-view");map.flyTo([l.lat,l.lng],16)}
+  $("#v .x").onclick=shut;$("#bs")&&($("#bs").onclick=()=>book(l));$("#gs")&&($("#gs").onclick=()=>{shut();signup=false;authMode();open("#m-auth")});open("#m-view");map.flyTo([l.lat,l.lng],16);
+  if(live&&l.thumb&&!l.images?.length)getDoc(doc(db,"listings",l.id,"photos","all")).then(d=>{const im=d.data()?.images;if(im?.length&&$("#gl"))$("#gl").innerHTML=im.map(i=>`<img src="${i}" alt="Photo of ${esc(l.name)}">`).join("")}).catch(()=>{})}
 async function book(l){const b={listingId:l.id,listingName:l.name,ownerId:l.owner||"demo",name:$("#bn").value.trim(),phone:$("#bp").value.trim(),date:$("#bd").value,note:$("#bt").value.trim(),status:"pending",userId:U?.uid||null,userEmail:U?.email||""};
   if(!U){pend={id:l.id,n:$("#bn").value,p:$("#bp").value,d:$("#bd").value,t:$("#bt").value};shut();signup=false;want="tenant";authMode();open("#m-auth");return toast("Register or sign in with your Gmail to send your request")}
   if(!b.name||!b.phone||!b.date)return toast("Add your name, phone and move-in date");
@@ -212,45 +215,53 @@ $("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config fir
     if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:"landlord",email:e,created:serverTimestamp()});base="landlord";U={...c.user,displayName:$("#an").value};calc()}
     else await signInWithEmailAndPassword(auth,e,p);$("#m-auth").classList.remove("show");toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords: tap Create an account first.":x.message.replace("Firebase: ",""))}};
 function nav(){const n=$("#nav");
-  n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
+  n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":role==="mod"?"Moderator":"My listings"}${B_.filter(b=>b.status==="pending").length?` (${B_.filter(b=>b.status==="pending").length})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
   $("#nd")&&($("#nd").onclick=()=>dash("list"));
   $("#nc")&&($("#nc").onclick=()=>setDoc(doc(db,"config","admin"),{uid:U.uid}).then(()=>toast("You are now the admin")).catch(e=>toast(e.code==="permission-denied"?"Permission denied. Either admin is already claimed, or the email in your Firestore rules is not "+FIRST_ADMIN:"Could not claim admin: "+e.message)));
   $("#na")&&($("#na").onclick=()=>updateDoc(doc(db,"config","admin"),{uid:U.uid,transferTo:deleteField()}).then(()=>toast("You are now the admin")));$("#no")&&($("#no").onclick=()=>signOut(auth));
   $("#nl")&&($("#nl").onclick=()=>{signup=false;authMode();open("#m-auth")});$("#nj")&&($("#nj").onclick=()=>{signup=true;want="landlord";authMode();open("#m-auth")})}
 
 /* ---- Dashboard ---- */
-function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":"Landlord dashboard";
-  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],["inc","What's included"],["xfer","Transfer admin"]]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":role==="mod"?"Moderator panel":"Landlord dashboard";
+  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"||role==="mod"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],...(can("inclusions")?[["inc","What's included"]]:[]),...(role==="admin"?[["staff","Moderators"],["xfer","Transfer admin"]]:[])]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
-  const mine=role==="admin"?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
-  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${role==="admin"?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn alt sm" style="color:var(--ink)" data-ep="${l.id}">Payment details</button><button class="btn alt sm" style="color:var(--ink)" data-eph="${l.id}">Edit photos</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
+  const mine=can("listings")?L_:L_.filter(l=>l.owner===U.uid);const c=$("#dc");
+  if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${can("listings")?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button><button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn alt sm" style="color:var(--ink)" data-ep="${l.id}">Payment details</button><button class="btn alt sm" style="color:var(--ink)" data-eph="${l.id}">Edit photos</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
     $$("[data-d]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this listing?")){await deleteDoc(doc(db,"listings",b.dataset.d));toast("Listing removed")}});
     $$("[data-r]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.r);await updateDoc(doc(db,"listings",l.id),{rooms:l.rooms>0?0:1})});
     $$("[data-ei]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.ei);c.innerHTML=`<h3>What's included at ${esc(l.name)}</h3><div class="amp">${AM.map(a=>`<label><input type="checkbox" value="${a[0]}" ${(l.am||[]).includes(a[0])?"checked":""}>${a[1]} ${a[2]}</label>`).join("")}</div><p><button class="btn" id="es">Save</button> <button class="btn alt" style="color:var(--ink)" id="ec">Back</button></p>`;
       $("#ec").onclick=()=>dash("list");$("#es").onclick=async()=>{await updateDoc(doc(db,"listings",l.id),{am:$$(".amp input:checked").map(i=>i.value)});toast("Updated");dash("list")}});
     $$("[data-ep]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.ep);c.innerHTML=`<h3>Payment details for ${esc(l.name)}</h3>${payFields(l.pay||{})}<p><button class="btn" id="ps">Save</button> <button class="btn alt" style="color:var(--ink)" id="pc">Back</button></p>`;
       $("#pc").onclick=()=>dash("list");$("#ps").onclick=async()=>{const p=readPay(),m=payMsg(p);if(m)return toast(m);await updateDoc(doc(db,"listings",l.id),{pay:p});toast("Payment details saved");dash("list")}});
-    $$("[data-eph]").forEach(b=>b.onclick=()=>{const l=L_.find(x=>x.id===b.dataset.eph);let im=[...(l.images||[])];
+    $$("[data-eph]").forEach(b=>b.onclick=async()=>{const l=L_.find(x=>x.id===b.dataset.eph);let im=[...(l.images||[])];if(!im.length&&l.thumb)im=(await getDoc(doc(db,"listings",l.id,"photos","all"))).data()?.images||[];
       const paint=()=>{$("#pg").innerHTML=im.map((i,x)=>`<div style="position:relative"><img src="${i}" style="height:100px;border-radius:10px" alt=""><button class="x" style="width:26px;height:26px;font-size:15px;top:4px;right:4px" data-rm="${x}" aria-label="Remove photo">×</button></div>`).join("")||`<p class="mut">No photos yet.</p>`;$$("[data-rm]").forEach(k=>k.onclick=()=>{im.splice(+k.dataset.rm,1);paint()})};
       c.innerHTML=`<h3>Photos for ${esc(l.name)}</h3><div class="gal" id="pg"></div><label>Add photos (max 4 in total)</label><input id="pf" type="file" accept="image/*" multiple><p><button class="btn" id="phs">Save</button> <button class="btn alt" style="color:var(--ink)" id="phc">Back</button></p>`;paint();
       $("#pf").onchange=async e=>{for(const f of [...e.target.files]){if(im.length>=4){toast("Maximum 4 photos");break}im.push(await shrink(f))}e.target.value="";paint()};
-      $("#phc").onclick=()=>dash("list");$("#phs").onclick=async()=>{if(im.length<MIN_PHOTOS)return toast("Keep at least "+MIN_PHOTOS+" photo"+(MIN_PHOTOS>1?"s":""));await updateDoc(doc(db,"listings",l.id),{images:im});toast("Photos updated");dash("list")}})}
+      $("#phc").onclick=()=>dash("list");$("#phs").onclick=async()=>{if(im.length<MIN_PHOTOS)return toast("Keep at least "+MIN_PHOTOS+" photo"+(MIN_PHOTOS>1?"s":""));await setDoc(doc(db,"listings",l.id,"photos","all"),{images:im});await updateDoc(doc(db,"listings",l.id),{thumb:await thumbOf(im[0]),images:deleteField(),nphotos:im.length});toast("Photos updated");dash("list")}})}
   if(tab==="book"){c.innerHTML=B_.length?B_.map(b=>`<div class="li"><div><b>${esc(b.name)}</b> <span class="st">${b.status}</span><div class="mut">${esc(b.listingName)} · move in ${esc(b.date)} · ${esc(b.phone)} ${esc(b.note)}</div></div><a class="btn sea sm" style="text-decoration:none" href="https://wa.me/${wa(b.phone)}" target="_blank" rel="noopener">WhatsApp</a><button class="btn sm" data-s="confirmed" data-b="${b.id}">Confirm</button><button class="btn bad sm" data-s="declined" data-b="${b.id}">Decline</button></div>`).join(""):`<p class="mut">No booking requests yet.</p>`;
     $$("[data-b]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"bookings",b.dataset.b),{status:b.dataset.s}).then(()=>toast("Booking "+b.dataset.s)))}
   const T=x=>x?.toDate?x.toDate():null,fm=d=>d?d.toLocaleDateString()+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"";
   if(tab==="land"||tab==="ten"){const rl=tab==="land"?"landlord":"tenant",a=UL.filter(u=>u.role===rl&&u.id!==AD?.uid),rm=BL.filter(b=>b.role===rl);
     const info=u=>{if(rl==="landlord"){const ls=L_.filter(l=>l.owner===u.id),bs=B_.filter(b=>b.ownerId===u.id);return `${ls.length} listing(s) · ${bs.length} booking request(s), ${bs.filter(b=>b.status==="confirmed").length} confirmed`}
       const bs=B_.filter(b=>b.userId===u.id).sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));return `${bs.length} booking request(s)${bs[0]?" · latest: "+esc(bs[0].listingName)+" ("+bs[0].status+")":""}`};
-    c.innerHTML=`<p><button class="btn sea sm" id="pa">+ Add a ${rl}</button> <span class="mut">${a.length} registered</span></p><div id="paf" hidden><div class="row"><div><label>Name</label><input id="pn"></div><div><label>${rl==="tenant"?"Gmail address":"Email"}</label><input id="pe" type="email"></div></div><label>Temporary password (6+ characters)</label><input id="pw"><p class="mut">They log in with this email and password. A verification email is also sent to them.</p><p><button class="btn" id="ps2">Create account</button></p></div>`
-      +(a.map(u=>`<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${info(u)}</div></div><button class="btn bad sm" data-rp="${u.id}">Remove</button></div>`).join("")||`<p class="mut">No ${rl}s yet.</p>`)
-      +(rm.length?`<h3>Removed accounts</h3>`+rm.map(b=>`<div class="li"><div>${esc(b.name||b.email)}<div class="mut">${esc(b.email)}</div></div><button class="btn sm" data-rs="${b.id}">Restore</button></div>`).join(""):"");
-    $("#pa").onclick=()=>{$("#paf").hidden=!$("#paf").hidden};
+    c.innerHTML=`<p>${role==="admin"?`<button class="btn sea sm" id="pa">+ Add a ${rl}</button> `:""}<span class="mut">${a.length} registered</span></p><div id="paf" hidden><div class="row"><div><label>Name</label><input id="pn"></div><div><label>${rl==="tenant"?"Gmail address":"Email"}</label><input id="pe" type="email"></div></div><label>Temporary password (6+ characters)</label><input id="pw"><p class="mut">They log in with this email and password. A verification email is also sent to them.</p><p><button class="btn" id="ps2">Create account</button></p></div>`
+      +(a.map(u=>`<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${info(u)}</div></div>${can("people")?`<button class="btn bad sm" data-rp="${u.id}">Remove</button>`:""}</div>`).join("")||`<p class="mut">No ${rl}s yet.</p>`)
+      +(rm.length?`<h3>Removed accounts</h3>`+rm.map(b=>`<div class="li"><div>${esc(b.name||b.email)}<div class="mut">${esc(b.email)}</div></div>${role==="admin"?`<button class="btn sm" data-rs="${b.id}">Restore</button>`:""}</div>`).join(""):"");
+    $("#pa")&&($("#pa").onclick=()=>{$("#paf").hidden=!$("#paf").hidden});
     $("#ps2").onclick=async()=>{const n=$("#pn").value.trim(),e=$("#pe").value.trim().toLowerCase(),w=$("#pw").value;if(!n||!e||w.length<6)return toast("Enter a name, an email and a password of 6 or more characters");if(rl==="tenant"&&!/@gmail\.com$/.test(e))return toast("Tenants need a Gmail address");
       try{await addPerson(n,e,w,rl);toast("Account created");dash(tab)}catch(x){toast(x.message.replace("Firebase: ",""))}};
     $$("[data-rp]").forEach(b=>b.onclick=()=>removePerson(UL.find(u=>u.id===b.dataset.rp)).then(()=>dash(tab)));
     $$("[data-rs]").forEach(b=>b.onclick=()=>restore(BL.find(x=>x.id===b.dataset.rs)).then(()=>dash(tab)))}
   if(tab==="act"){const ev=[...UL.map(u=>({t:T(u.created),m:`👤 ${esc(u.name||u.email)} registered as a ${esc(u.role)}`})),...L_.map(l=>({t:T(l.created),m:`🏠 ${esc(l.ownerName||"A landlord")} listed <b>${esc(l.name)}</b> (${esc(l.area)})`})),...B_.map(b=>({t:T(b.created),m:`📅 ${esc(b.name)} requested <b>${esc(b.listingName)}</b> · ${b.status}`}))].filter(e=>e.t).sort((x,y)=>y.t-x.t).slice(0,60);
     c.innerHTML=ev.length?ev.map(e=>`<div class="li"><div>${e.m}<div class="mut">${fm(e.t)}</div></div></div>`).join(""):`<p class="mut">No activity yet.</p>`}
+  if(tab==="staff"){const cand=UL.filter(u=>u.id!==AD?.uid&&!ST.some(x=>x.id===u.id)),P=[["listings","Remove and edit listings"],["people","Remove landlords and tenants"],["inclusions","Edit what's included"]];
+    const pc=(p,id,on)=>`<label style="display:inline-flex;gap:4px;margin:0 10px 4px 0;font-weight:400"><input type="checkbox" style="width:auto" data-pm="${id}" value="${p[0]}" ${on?"checked":""}>${p[1]}</label>`;
+    c.innerHTML=`<p>Moderators can view landlords, tenants, bookings and activity. You choose what else they may do. They can never add or remove moderators, transfer admin, create accounts or restore removed accounts.</p><h3>Add a moderator</h3><label>Person (must already be registered)</label><select id="sp">${cand.map(u=>`<option value="${u.id}">${esc(u.name||u.email)} (${esc(u.role)}) · ${esc(u.email)}</option>`).join("")||`<option value="">No one available</option>`}</select><div style="margin:8px 0">${P.map(p=>pc(p,"new",false)).join("")}</div><p><button class="btn" id="sa">Make moderator</button></p><h3>Current moderators</h3>`
+      +(ST.map(m=>`<div class="li"><div><b>${esc(m.name||m.email)}</b><div class="mut">${esc(m.email)}</div><div>${P.map(p=>pc(p,m.id,m.perms?.[p[0]])).join("")}</div></div><button class="btn sm" data-ss="${m.id}">Save</button><button class="btn bad sm" data-sr="${m.id}">Remove moderator</button></div>`).join("")||`<p class="mut">No moderators yet.</p>`);
+    const rd=id=>Object.fromEntries(P.map(p=>[p[0],!!document.querySelector(`[data-pm="${id}"][value="${p[0]}"]`).checked]));
+    $("#sa").onclick=async()=>{const id=$("#sp").value,u=UL.find(x=>x.id===id);if(!u)return toast("Pick a person");await setDoc(doc(db,"staff",id),{name:u.name||"",email:u.email||"",perms:rd("new")});toast("Moderator added");dash("staff")};
+    $$("[data-ss]").forEach(b=>b.onclick=async()=>{await updateDoc(doc(db,"staff",b.dataset.ss),{perms:rd(b.dataset.ss)});toast("Saved")});
+    $$("[data-sr]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this moderator?")){await deleteDoc(doc(db,"staff",b.dataset.sr));dash("staff")}})}
   if(tab==="inc"){c.innerHTML=`<p>Options added here appear in every landlord's “What's included” list and on listings. Built in: ${BASE.map(a=>a[1]+" "+a[2]).join(", ")}.</p><div class="row"><div><label>Emoji</label><input id="ie" maxlength="4" placeholder="🛏️"></div><div><label>Name</label><input id="in" placeholder="e.g. Study desk"></div></div><p><button class="btn" id="ia">Add option</button></p>`+(CI.length?CI.map((i,x)=>`<div class="li"><div>${esc(i.e)} ${esc(i.n)}</div><button class="btn bad sm" data-ci="${x}">Remove</button></div>`).join(""):`<p class="mut">No custom options yet.</p>`);
     $("#ia").onclick=async()=>{const n=$("#in").value.trim();if(!n)return toast("Enter a name");await setDoc(doc(db,"config","inclusions"),{items:[...CI,{k:"c"+Date.now(),e:$("#ie").value.trim()||"✔️",n}]});toast("Option added");dash("inc")};
     $$("[data-ci]").forEach(b=>b.onclick=async()=>{await setDoc(doc(db,"config","inclusions"),{items:CI.filter((_,x)=>x!=b.dataset.ci)});dash("inc")})}
@@ -275,15 +286,19 @@ function addForm(){pimgs=[];$("#dc").innerHTML=`<div class="row"><div><label>Nam
     if(pimgs.length<MIN_PHOTOS)return toast("Please upload at least "+MIN_PHOTOS+" photo"+(MIN_PHOTOS>1?"s":"")+" of your place");
     {const m=payMsg(readPay());if(m)return toast(m)}
     if(!live)return toast("Demo mode: connect Firebase to publish");
-    const p=pickMk.getLatLng();await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),images:pimgs,pay:readPay(),lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
+    const p=pickMk.getLatLng(),th=await thumbOf(pimgs[0]);const rf=await addDoc(collection(db,"listings"),{name:n,type:g("#ftp"),area:g("#fa"),phone:g("#fp"),price:+g("#fpr"),per:g("#fper"),rooms:+g("#fr"),am:$$(".amp input:checked").map(i=>i.value),desc:g("#fd"),thumb:th,nphotos:pimgs.length,pay:readPay(),lat:p.lat,lng:p.lng,owner:U.uid,ownerName:U.displayName||U.email,created:serverTimestamp()});
+    await setDoc(doc(db,"listings",rf.id,"photos","all"),{images:pimgs}).catch(async e=>{await deleteDoc(doc(db,"listings",rf.id));toast("Could not save photos, please try again");throw e});
     toast("Listing published");dash("list")}}
 function shrink(f){return new Promise(r=>{const i=new Image;i.onload=()=>{const s=Math.min(1,720/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*s;c.height=i.height*s;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.65))};i.src=URL.createObjectURL(f)})}
 async function addPerson(name,email,pw,rl){const a2=initializeApp(CFG,"adm"+Date.now()),au=getAuth(a2);
   try{const c=await createUserWithEmailAndPassword(au,email,pw);await setDoc(doc(db,"users",c.user.uid),{name,role:rl,email,created:serverTimestamp()});await sendEmailVerification(c.user).catch(()=>{});await signOut(au)}finally{deleteApp(a2)}}
 async function removePerson(u){if(!u||!confirm("Remove "+(u.name||u.email)+"?"+(u.role==="landlord"?" Their listings will be deleted too.":"")+" They will be signed out and blocked."))return;
-  for(const l of L_.filter(l=>l.owner===u.id))await deleteDoc(doc(db,"listings",l.id));
-  await setDoc(doc(db,"blocked",u.id),{email:u.email||"",name:u.name||"",role:u.role,at:serverTimestamp()});await deleteDoc(doc(db,"users",u.id));toast("Account removed")}
+  try{for(const l of L_.filter(l=>l.owner===u.id))await deleteDoc(doc(db,"listings",l.id));
+    await setDoc(doc(db,"blocked",u.id),{email:u.email||"",name:u.name||"",role:u.role,at:serverTimestamp()});await deleteDoc(doc(db,"users",u.id));
+    if(role==="admin")await deleteDoc(doc(db,"staff",u.id));toast("Account removed")}
+  catch(e){toast(e.code==="permission-denied"?"You do not have permission to remove this account":e.message)}}
 async function restore(b){if(!b)return;await setDoc(doc(db,"users",b.id),{name:b.name||"",role:b.role,email:b.email||"",created:serverTimestamp()});await deleteDoc(doc(db,"blocked",b.id));toast("Account restored")}
+const thumbOf=u=>new Promise(r=>{const i=new Image;i.onload=()=>{const k=Math.min(1,360/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);r(c.toDataURL("image/jpeg",.55))};i.src=u});
 const MOMO=["MTN MoMo","Telecel Cash","AirtelTigo Money"];
 const payFields=p=>`<div class="row"><div><label>MoMo network</label><select id="pmn">${MOMO.map(n=>`<option ${p.momoNet===n?"selected":""}>${n}</option>`).join("")}</select></div><div><label>MoMo number</label><input id="pmo" type="tel" value="${esc(p.momoNo)}" placeholder="0241234567"></div></div><label>Name on MoMo account</label><input id="pmm" value="${esc(p.momoName)}"><div class="row"><div><label>Bank name</label><input id="pb" value="${esc(p.bank)}" placeholder="e.g. GCB, Ecobank"></div><div><label>Bank account number</label><input id="pbo" value="${esc(p.bankNo)}"></div></div><label>Name on bank account</label><input id="pbn" value="${esc(p.bankName)}"><p class="mut">Add a MoMo number, a bank account, or both.</p>`;
 const readPay=()=>({momoNet:$("#pmn").value,momoNo:$("#pmo").value.replace(/\s/g,""),momoName:$("#pmm").value.trim(),bank:$("#pb").value.trim(),bankNo:$("#pbo").value.replace(/\s/g,""),bankName:$("#pbn").value.trim()});
