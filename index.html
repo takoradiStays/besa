@@ -17,9 +17,9 @@ nav{display:flex;gap:8px;align-items:center}
 .btn{border:0;border-radius:99px;padding:10px 18px;font-weight:600;cursor:pointer;background:var(--crane);color:var(--ink)}
 .btn.alt{background:transparent;color:inherit;border:2px solid currentColor}.btn.sea{background:var(--sea);color:#fff}.btn.bad{background:var(--bad);color:#fff}.btn.sm{padding:6px 12px;font-size:14px}
 .hero{background:linear-gradient(180deg,var(--ink) 0,#134a5a 100%);color:#fff;padding:48px 5vw 90px;position:relative;overflow:hidden}
-.hero-in{display:grid;grid-template-columns:1.25fr 1fr;gap:36px;align-items:center;max-width:1240px;margin:0 auto}
-.hero-img{justify-self:center}.hero-img img{display:block;width:min(100%,340px);height:auto;border-radius:24px;border:4px solid #ffffff33;box-shadow:0 18px 44px #0008}
-@media(max-width:860px){.hero-in{grid-template-columns:1fr}.hero-img img{width:min(100%,300px)}}
+.hero-in{display:grid;grid-template-columns:1.7fr 1fr;gap:36px;align-items:center;max-width:1240px;margin:0 auto}
+.hero-img{justify-self:center}.hero-img img{display:block;width:min(100%,250px);height:auto;border-radius:24px;border:4px solid #ffffff33;box-shadow:0 18px 44px #0008}
+@media(max-width:860px){.hero-in{grid-template-columns:1fr}.hero-img img{width:min(100%,220px)}}
 .hero h1{font-size:clamp(34px,6vw,64px);line-height:1.02;max-width:760px}
 .hero p{max-width:560px;color:#cfe3e3}
 .waves{position:absolute;left:0;right:0;bottom:-1px;height:50px;background:var(--foam);clip-path:path('M0 30 Q 120 0 240 30 T 480 30 T 720 30 T 960 30 T 1200 30 T 1440 30 T 1680 30 T 1920 30 V50 H0Z')}
@@ -82,13 +82,13 @@ footer{text-align:center;padding:26px;color:var(--mut)}
   <div class="bar" id="bar"></div>
   <div class="split"><div><div id="info" class="mut" style="margin-bottom:10px"></div><div class="grid" id="grid"></div></div><div id="map"></div></div>
 </main>
-<footer>Besa · Always visit a place and meet the landlord before paying.</footer>
+<footer>Besa · Always visit a place and meet the landlord or agent before paying.</footer>
 
 <div class="modal" id="m-view"><div class="sheet" id="v"></div></div>
 <div class="modal" id="m-auth"><div class="sheet" style="width:min(440px,100%)"><button class="x" data-close>×</button>
   <div class="logo" style="font-size:28px;display:flex;align-items:center;gap:10px"><svg viewBox="0 0 40 36" width="44" height="40" aria-hidden="true" ><rect x="26" y="4" width="4" height="8" fill="#0e2a3b"/><path d="M3 17 L19 3 L35 17Z" fill="#f2b632" stroke="#0e2a3b" stroke-width="1.6" stroke-linejoin="round"/><rect x="6" y="17" width="26" height="15" fill="#e9f4f0" stroke="#0e2a3b" stroke-width="1.6"/><rect x="16.5" y="22" width="5" height="10" fill="#1f8a8a"/><rect x="8.5" y="20" width="5" height="5" fill="#1f8a8a"/><rect x="24.5" y="20" width="5" height="5" fill="#1f8a8a"/><circle cx="31" cy="26" r="6" fill="#fff" fill-opacity=".9" stroke="#1f8a8a" stroke-width="2"/><path d="M35.5 30.5 L39 34" stroke="#1f8a8a" stroke-width="2.6" stroke-linecap="round"/></svg><span>Be<b style="color:var(--sea)">sa</b></span></div>
   <h2 id="at">Find a place to stay</h2>
-  <div class="tabs" id="rl"><button class="btn on" data-rl="tenant">I'm looking for a place</button><button class="btn" data-rl="landlord">I'm a landlord</button></div>
+  <div class="tabs" id="rl"><button class="btn on" data-rl="tenant">I'm looking for a place</button><button class="btn" data-rl="landlord">I'm a landlord / agent</button></div>
   <p class="mut" id="rh"></p>
   <p><button class="btn" id="ag" style="width:100%">Continue with Google</button></p>
   <div id="ef" hidden><p class="mut">Or use an email and password</p><div id="nmw" hidden><label>Your name</label><input id="an"></div>
@@ -131,6 +131,7 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const toast=t=>{const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",3200)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const wa=n=>{let d=String(n||"").replace(/\D/g,"");if(d.startsWith("00"))d=d.slice(2);else if(d.startsWith("0"))d="233"+d.slice(1);return d};
+const RN=r=>r==="landlord"?"landlord / agent":r;
 const can=p=>role==="admin"||(role==="mod"&&!!SF?.perms?.[p]);
 const pcount=()=>B_.filter(b=>b.status==="pending").length+(can("listings")?L_.filter(l=>l.status==="pending").length+RP.filter(x=>x.status==="open").length:0);
 const km=(a,b,c,d)=>{const r=x=>x*Math.PI/180,h=Math.sin(r(c-a)/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(r(d-b)/2)**2;return 12742*Math.asin(Math.sqrt(h))};
@@ -189,7 +190,7 @@ function draw(){
   $$("#bar button").forEach(b=>b.onclick=()=>{ftype=b.dataset.t;draw()});
   $("#fx").onchange=e=>{fmax=e.target.value;draw()};$("#ft").onchange=e=>{ftxt=e.target.value;draw()};
   const a=view();$("#info").textContent=ref?`${a.length} places, closest to ${ref.n} first`:`${a.length} places in Takoradi and nearby`;
-  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.thumb||l.images?.[0]?`background-image:url(${l.thumb||l.images[0]})`:""}">${l.thumb||l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}${l.status&&l.status!=="approved"?(l.status==="pending"?" · ⏳ Pending":" · Rejected"):""}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).filter(k=>AM.some(x=>x[0]===k)).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords to list here.</p></div>`;
+  $("#grid").innerHTML=a.length?a.map(l=>`<article class="card" tabindex="0" data-id="${l.id}"><div class="pic" style="${l.thumb||l.images?.[0]?`background-image:url(${l.thumb||l.images[0]})`:""}">${l.thumb||l.images?.[0]?"":"🏠"}<span class="tag">${esc(l.type)}${l.status&&l.status!=="approved"?(l.status==="pending"?" · ⏳ Pending":" · Rejected"):""}</span>${l.d!=null?`<span class="dist">${l.d.toFixed(1)} km</span>`:""}</div><div class="cb"><h3>${esc(l.name)}</h3><div class="mut">📍 ${esc(l.area)} · ${l.rooms} room(s) free</div><div class="am">${(l.am||[]).filter(k=>AM.some(x=>x[0]===k)).slice(0,4).map(k=>`<span>${AM.find(x=>x[0]===k)?.[1]||""} ${AM.find(x=>x[0]===k)?.[2]||k}</span>`).join("")}</div><div class="price">${money(l)}</div></div></article>`).join(""):`<div class="empty"><h3>No places match yet</h3><p>Clear a filter, try another landmark, or ask landlords and agents to list here.</p></div>`;
   $$(".card").forEach(c=>{c.onclick=()=>show(c.dataset.id);c.onkeydown=e=>{if(e.key==="Enter")show(c.dataset.id)}});
   markers.forEach(m=>m.remove());markers=a.filter(l=>Number.isFinite(l.lat)&&Number.isFinite(l.lng)).map(l=>L.marker([l.lat,l.lng]).addTo(map).bindPopup(`<b>${esc(l.name)}</b><br>${money(l)}<br><a href="#" data-pop="${l.id}">View details</a>`));
 }
@@ -218,19 +219,19 @@ async function review(id){const l=L_.find(x=>x.id===id),c=$("#dc");if(!l)return;
   const o=UL.find(u=>u.id===l.owner)||{},p=l.pay||{},ph=im.length?im:(l.thumb?[l.thumb]:[]),fl=[];
   if(!im.length)fl.push("No full photos found");else if(im.length<3)fl.push("Only "+im.length+" photo(s)");
   if(!p.momoNo&&!p.bankNo)fl.push("No payment details");if(!/^233\d{9}$/.test(wa(l.phone)))fl.push("Phone number looks wrong");
-  if(!l.desc||l.desc.length<20)fl.push("Very short description");if(!o.email)fl.push("Landlord profile not found");
+  if(!l.desc||l.desc.length<20)fl.push("Very short description");if(!o.email)fl.push("Landlord/agent profile not found");
   const nr=LM.map(x=>[x[0],km(x[1],x[2],l.lat,l.lng)]).sort((a,b)=>a[1]-b[1])[0];if(nr&&nr[1]>25)fl.push("Pin is "+nr[1].toFixed(0)+" km from the nearest Takoradi landmark");
   c.innerHTML=`<p><button class="btn alt sm" style="color:var(--ink)" id="rvb">Back to listings</button></p><h3>${esc(l.name)}</h3><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)} · ${l.rooms} room(s)</div>
   <div class="gal">${ph.map(i=>`<img src="${i}" alt="">`).join("")||"<p class='mut'>No photos</p>"}</div><p>${esc(l.desc)}</p>
   <div class="am">${(l.am||[]).map(k=>{const a=AM.find(x=>x[0]===k);return a?`<span>${a[1]} ${a[2]}</span>`:""}).join("")}</div>
-  <div class="pay"><b>Landlord</b><div>${esc(o.name||l.ownerName||"")} · ${esc(o.email||"")}</div><div>Phone on listing: ${esc(l.phone)}</div>${p.momoNo?`<div>📱 ${esc(p.momoNet)}: ${esc(p.momoNo)} (${esc(p.momoName)})</div>`:""}${p.bankNo?`<div>🏦 ${esc(p.bank)}: ${esc(p.bankNo)} (${esc(p.bankName)})</div>`:""}</div>
+  <div class="pay"><b>Landlord / agent</b><div>${esc(o.name||l.ownerName||"")} · ${esc(o.email||"")}</div><div>Phone on listing: ${esc(l.phone)}</div>${p.momoNo?`<div>📱 ${esc(p.momoNet)}: ${esc(p.momoNo)} (${esc(p.momoName)})</div>`:""}${p.bankNo?`<div>🏦 ${esc(p.bank)}: ${esc(p.bankNo)} (${esc(p.bankName)})</div>`:""}</div>
   <div id="rvm" style="height:200px;border-radius:14px;margin:8px 0"></div>
   ${fl.length?`<div class="pay" style="background:#fff3cd"><b>Things to check</b><br>${fl.map(f=>"⚠️ "+esc(f)).join("<br>")}</div>`:`<p class="mut">✅ No automatic warnings.</p>`}
   <p><button class="btn sea" id="rva">Approve</button> <button class="btn bad" id="rvr">Reject with reason</button></p>`;
   setTimeout(()=>{try{rvMap&&rvMap.remove()}catch{}rvMap=L.map("rvm").setView([l.lat,l.lng],16);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(rvMap);L.marker([l.lat,l.lng]).addTo(rvMap);setTimeout(()=>rvMap.invalidateSize(),300)},60);
   $("#rvb").onclick=()=>dash("list");
   $("#rva").onclick=async()=>{try{await updateDoc(doc(db,"listings",id),{status:"approved",rejectReason:deleteField()});toast("Approved. It is now live.");dash("list")}catch(e){toast("Not allowed: "+e.code)}};
-  $("#rvr").onclick=async()=>{const why=(prompt("Why is this listing being rejected? The landlord will see this.")||"").trim();if(!why)return;try{await updateDoc(doc(db,"listings",id),{status:"rejected",rejectReason:why.slice(0,300)});toast("Rejected");dash("list")}catch(e){toast("Not allowed: "+e.code)}}}
+  $("#rvr").onclick=async()=>{const why=(prompt("Why is this listing being rejected? The landlord or agent will see this.")||"").trim();if(!why)return;try{await updateDoc(doc(db,"listings",id),{status:"rejected",rejectReason:why.slice(0,300)});toast("Rejected");dash("list")}catch(e){toast("Not allowed: "+e.code)}}}
 async function report(l){if(!U){shut();signup=false;want="tenant";authMode();open("#m-auth");return toast("Sign in with your Gmail to report a listing")}
   const reason=(prompt("What is wrong with this listing? (for example: scam, wrong details, not available)")||"").trim();if(!reason)return;
   if(!live)return toast("Demo mode: reports are not saved");
@@ -239,13 +240,13 @@ async function book(l){const b={listingId:l.id,listingName:l.name,ownerId:l.owne
   if(!U){pend={id:l.id,n:$("#bn").value,p:$("#bp").value,d:$("#bd").value,t:$("#bt").value};shut();signup=false;want="tenant";authMode();open("#m-auth");return toast("Register or sign in with your Gmail to send your request")}
   if(!b.name||!b.phone||!b.date)return toast("Add your name, phone and move-in date");
   if(!live)return toast("Demo mode: connect Firebase to save bookings");
-  await addDoc(collection(db,"bookings"),{...b,created:serverTimestamp()});shut();toast("Request sent. The landlord will contact you.")}
+  await addDoc(collection(db,"bookings"),{...b,created:serverTimestamp()});shut();toast("Request sent. The landlord or agent will contact you.")}
 
 /* ---- Auth ---- */
 let signup=false,want="tenant";
 function authMode(){const ll=want==="landlord";if(!ll)signup=false;$("#ef").hidden=false;$("#aswap").hidden=!ll;$("#nmw").hidden=!(ll&&signup);
-  $("#at").textContent=ll?(signup?"Register as a landlord":"Landlord log in"):"Find a place to stay";
-  $("#rh").textContent=ll?"List your hostels and houses and get booking requests. Gmail users can also continue with Google.":"Sign in or register with your Gmail. A new account is created automatically.";
+  $("#at").textContent=ll?(signup?"Register as a landlord / agent":"Landlord / agent log in"):"Find a place to stay";
+  $("#rh").textContent=ll?"Landlords and agents: list your hostels and houses and get booking requests. Gmail users can also continue with Google.":"Sign in or register with your Gmail. A new account is created automatically.";
   $("#asub").textContent=signup?"Register":"Log in";$("#aswap").textContent=signup?"I have an account":"Create an account";
   $$("[data-rl]").forEach(b=>b.classList.toggle("on",b.dataset.rl===want))}
 $("#aswap").onclick=()=>{signup=!signup;authMode()};
@@ -258,7 +259,7 @@ $("#ag").onclick=async()=>{if(!live)return toast("Add your Firebase config first
 $("#asub").onclick=async()=>{if(!live)return toast("Add your Firebase config first");
   try{const e=$("#ae").value.trim(),p=$("#ap").value;
     if(signup){const c=await createUserWithEmailAndPassword(auth,e,p);await setDoc(doc(db,"users",c.user.uid),{name:$("#an").value.trim(),role:"landlord",email:e,created:serverTimestamp()});base="landlord";U={...c.user,displayName:$("#an").value};calc()}
-    else await signInWithEmailAndPassword(auth,e,p);$("#m-auth").classList.remove("show");toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords: tap Create an account first.":x.message.replace("Firebase: ",""))}};
+    else await signInWithEmailAndPassword(auth,e,p);$("#m-auth").classList.remove("show");toast("You're in")}catch(x){toast(/invalid-credential|user-not-found|wrong-password/.test(x.code)?"No account with that email and password. Tenants and the admin should use Continue with Google. Landlords and agents: tap Create an account first.":x.message.replace("Firebase: ",""))}};
 function nav(){const n=$("#nav");
   n.innerHTML=U?`<span class="mut" style="color:#cfe3e3">${esc(U.email)}</span>${AD?.none&&U.email.toLowerCase()===FIRST_ADMIN.toLowerCase()?`<button class="btn sm" id="nc">Claim admin</button>`:""}${AD?.transferTo&&AD.transferTo===U.email.toLowerCase()?`<button class="btn sm" id="na">Accept admin role</button>`:""}${role!=="tenant"?`<button class="btn sm" id="nd">${role==="admin"?"Admin":role==="mod"?"Moderator":"My listings"}${pcount()?` (${pcount()})`:""}</button>`:""}<button class="btn alt sm" id="no">Log out</button>`:`<button class="btn alt sm" id="nl">Sign in</button><button class="btn sm" id="nj">List your place</button>`;
   $("#nd")&&($("#nd").onclick=()=>dash("list"));
@@ -267,8 +268,8 @@ function nav(){const n=$("#nav");
   $("#nl")&&($("#nl").onclick=()=>{signup=false;authMode();open("#m-auth")});$("#nj")&&($("#nj").onclick=()=>{signup=true;want="landlord";authMode();open("#m-auth")})}
 
 /* ---- Dashboard ---- */
-function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":role==="mod"?"Moderator panel":"Landlord dashboard";
-  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"||role==="mod"?[["land","Landlords"],["ten","Tenants"],["act","Activity"],...(can("listings")?[["rep","Reports"]]:[]),...(can("inclusions")?[["inc","What's included"]]:[]),...(role==="admin"?[["staff","Moderators"],["xfer","Transfer admin"]]:[])]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
+function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":role==="mod"?"Moderator panel":"Landlord / Agent dashboard";
+  $("#dtabs").innerHTML=[["list","Listings"],["book","Bookings"],["add","+ Add a place"],...(role==="admin"||role==="mod"?[["land","Landlords / Agents"],["ten","Tenants"],["act","Activity"],...(can("listings")?[["rep","Reports"]]:[]),...(can("inclusions")?[["inc","What's included"]]:[]),...(role==="admin"?[["staff","Moderators"],["xfer","Transfer admin"]]:[])]:[])].map(t=>`<button class="btn ${tab===t[0]?"on":""}" data-tab="${t[0]}">${t[1]}</button>`).join("");
   $$("[data-tab]").forEach(b=>b.onclick=()=>dash(b.dataset.tab));
   const mine=(can("listings")?L_:L_.filter(l=>l.owner===U.uid)).slice().sort((a,b)=>(b.status==="pending")-(a.status==="pending"));const c=$("#dc");
   if(tab==="list"){c.innerHTML=mine.length?mine.map(l=>`<div class="li"><div><b>${esc(l.name)}</b><div class="mut">${esc(l.type)} · ${esc(l.area)} · ${money(l)}${l.status==="pending"?" · ⏳ awaiting approval":l.status==="rejected"?" · ❌ rejected"+(l.rejectReason?": "+esc(l.rejectReason):""):""}${can("listings")?" · "+esc(l.ownerName||""):""}</div></div><button class="btn sm" data-r="${l.id}">${l.rooms>0?"Mark full":"Mark available"}</button>${can("listings")&&l.status==="pending"?`<button class="btn sea sm" data-rv2="${l.id}">Review</button>`:""}${can("listings")&&l.status==="rejected"?`<button class="btn sm" data-ap="${l.id}">Approve</button>`:""}<button class="btn alt sm" style="color:var(--ink)" data-ei="${l.id}">Edit included</button><button class="btn alt sm" style="color:var(--ink)" data-ep="${l.id}">Payment details</button><button class="btn alt sm" style="color:var(--ink)" data-eph="${l.id}">Edit photos</button><button class="btn bad sm" data-d="${l.id}">Remove</button></div>`).join(""):`<p class="mut">Nothing listed yet. Add your first place and tenants will find it on the map.</p>`;
@@ -292,30 +293,30 @@ function dash(tab){$("#dt").textContent=role==="admin"?"Admin panel":role==="mod
   if(tab==="land"||tab==="ten"){const rl=tab==="land"?"landlord":"tenant",a=UL.filter(u=>u.role===rl&&u.id!==AD?.uid),rm=BL.filter(b=>b.role===rl);
     const info=u=>{if(rl==="landlord"){const ls=L_.filter(l=>l.owner===u.id),bs=B_.filter(b=>b.ownerId===u.id);return `${ls.length} listing(s) · ${bs.length} booking request(s), ${bs.filter(b=>b.status==="confirmed").length} confirmed`}
       const bs=B_.filter(b=>b.userId===u.id).sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));return `${bs.length} booking request(s)${bs[0]?" · latest: "+esc(bs[0].listingName)+" ("+bs[0].status+")":""}`};
-    c.innerHTML=`<p>${role==="admin"?`<button class="btn sea sm" id="pa">+ Add a ${rl}</button> `:""}<span class="mut">${a.length} registered</span></p><div id="paf" hidden><div class="row"><div><label>Name</label><input id="pn"></div><div><label>${rl==="tenant"?"Gmail address":"Email"}</label><input id="pe" type="email"></div></div><label>Temporary password (6+ characters)</label><input id="pw"><p class="mut">They log in with this email and password. A verification email is also sent to them.</p><p><button class="btn" id="ps2">Create account</button></p></div>`
-      +(a.map(u=>`<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${info(u)}</div></div>${can("people")?`<button class="btn bad sm" data-rp="${u.id}">Remove</button>`:""}</div>`).join("")||`<p class="mut">No ${rl}s yet.</p>`)
+    c.innerHTML=`<p>${role==="admin"?`<button class="btn sea sm" id="pa">+ Add a ${RN(rl)}</button> `:""}<span class="mut">${a.length} registered</span></p><div id="paf" hidden><div class="row"><div><label>Name</label><input id="pn"></div><div><label>${rl==="tenant"?"Gmail address":"Email"}</label><input id="pe" type="email"></div></div><label>Temporary password (6+ characters)</label><input id="pw"><p class="mut">They log in with this email and password. A verification email is also sent to them.</p><p><button class="btn" id="ps2">Create account</button></p></div>`
+      +(a.map(u=>`<div class="li"><div><b>${esc(u.name||u.email)}</b><div class="mut">${esc(u.email)} · joined ${fm(T(u.created))||"earlier"}</div><div class="mut">${info(u)}</div></div>${can("people")?`<button class="btn bad sm" data-rp="${u.id}">Remove</button>`:""}</div>`).join("")||`<p class="mut">No ${rl==="landlord"?"landlords or agents":"tenants"} yet.</p>`)
       +(rm.length?`<h3>Removed accounts</h3>`+rm.map(b=>`<div class="li"><div>${esc(b.name||b.email)}<div class="mut">${esc(b.email)}</div></div>${role==="admin"?`<button class="btn sm" data-rs="${b.id}">Restore</button>`:""}</div>`).join(""):"");
     $("#pa")&&($("#pa").onclick=()=>{$("#paf").hidden=!$("#paf").hidden});
     $("#ps2").onclick=async()=>{const n=$("#pn").value.trim(),e=$("#pe").value.trim().toLowerCase(),w=$("#pw").value;if(!n||!e||w.length<6)return toast("Enter a name, an email and a password of 6 or more characters");if(rl==="tenant"&&!/@gmail\.com$/.test(e))return toast("Tenants need a Gmail address");
       try{await addPerson(n,e,w,rl);toast("Account created");dash(tab)}catch(x){toast(x.message.replace("Firebase: ",""))}};
     $$("[data-rp]").forEach(b=>b.onclick=()=>removePerson(UL.find(u=>u.id===b.dataset.rp)).then(()=>dash(tab)));
     $$("[data-rs]").forEach(b=>b.onclick=()=>restore(BL.find(x=>x.id===b.dataset.rs)).then(()=>dash(tab)))}
-  if(tab==="act"){const ev=[...UL.map(u=>({t:T(u.created),m:`👤 ${esc(u.name||u.email)} registered as a ${esc(u.role)}`})),...L_.map(l=>({t:T(l.created),m:`🏠 ${esc(l.ownerName||"A landlord")} listed <b>${esc(l.name)}</b> (${esc(l.area)})`})),...B_.map(b=>({t:T(b.created),m:`📅 ${esc(b.name)} requested <b>${esc(b.listingName)}</b> · ${b.status}`}))].filter(e=>e.t).sort((x,y)=>y.t-x.t).slice(0,60);
+  if(tab==="act"){const ev=[...UL.map(u=>({t:T(u.created),m:`👤 ${esc(u.name||u.email)} registered as a ${esc(RN(u.role))}`})),...L_.map(l=>({t:T(l.created),m:`🏠 ${esc(l.ownerName||"A landlord/agent")} listed <b>${esc(l.name)}</b> (${esc(l.area)})`})),...B_.map(b=>({t:T(b.created),m:`📅 ${esc(b.name)} requested <b>${esc(b.listingName)}</b> · ${b.status}`}))].filter(e=>e.t).sort((x,y)=>y.t-x.t).slice(0,60);
     c.innerHTML=ev.length?ev.map(e=>`<div class="li"><div>${e.m}<div class="mut">${fm(e.t)}</div></div></div>`).join(""):`<p class="mut">No activity yet.</p>`}
   if(tab==="rep"){const o=RP.filter(x=>x.status==="open").sort((x,y)=>(T(y.created)||0)-(T(x.created)||0));
     c.innerHTML=o.length?o.map(x=>`<div class="li"><div><b>${esc(x.listingName)}</b><div class="mut">${esc(x.reason)}</div><div class="mut">Reported by ${esc(x.byEmail)} · ${fm(T(x.created))}</div></div><button class="btn alt sm" style="color:var(--ink)" data-rv="${x.listingId}">View</button><button class="btn bad sm" data-rx="${x.id}">Remove listing</button><button class="btn sm" data-rd="${x.id}">Dismiss</button></div>`).join(""):`<p class="mut">No open reports.</p>`;
     $$("[data-rv]").forEach(b=>b.onclick=()=>{shut();show(b.dataset.rv)});
     $$("[data-rd]").forEach(b=>b.onclick=()=>updateDoc(doc(db,"reports",b.dataset.rd),{status:"closed"}).then(()=>dash("rep")));
     $$("[data-rx]").forEach(b=>b.onclick=async()=>{const x=RP.find(y=>y.id===b.dataset.rx);if(!x||!confirm("Delete the reported listing?"))return;try{await deleteDoc(doc(db,"listings",x.listingId));await updateDoc(doc(db,"reports",x.id),{status:"closed"});toast("Listing removed");dash("rep")}catch(e){toast("Not allowed: "+e.code)}})}
-  if(tab==="staff"){const cand=UL.filter(u=>u.id!==AD?.uid&&!ST.some(x=>x.id===u.id)),P=[["listings","Remove and edit listings"],["people","Remove landlords and tenants"],["inclusions","Edit what's included"]];
+  if(tab==="staff"){const cand=UL.filter(u=>u.id!==AD?.uid&&!ST.some(x=>x.id===u.id)),P=[["listings","Remove and edit listings"],["people","Remove landlords/agents and tenants"],["inclusions","Edit what's included"]];
     const pc=(p,id,on)=>`<label style="display:inline-flex;gap:4px;margin:0 10px 4px 0;font-weight:400"><input type="checkbox" style="width:auto" data-pm="${id}" value="${p[0]}" ${on?"checked":""}>${p[1]}</label>`;
-    c.innerHTML=`<p>Moderators can view landlords, tenants, bookings and activity. You choose what else they may do. They can never add or remove moderators, transfer admin, create accounts or restore removed accounts.</p><h3>Add a moderator</h3><label>Person (must already be registered)</label><select id="sp">${cand.map(u=>`<option value="${u.id}">${esc(u.name||u.email)} (${esc(u.role)}) · ${esc(u.email)}</option>`).join("")||`<option value="">No one available</option>`}</select><div style="margin:8px 0">${P.map(p=>pc(p,"new",false)).join("")}</div><p><button class="btn" id="sa">Make moderator</button></p><h3>Current moderators</h3>`
+    c.innerHTML=`<p>Moderators can view landlords/agents, tenants, bookings and activity. You choose what else they may do. They can never add or remove moderators, transfer admin, create accounts or restore removed accounts.</p><h3>Add a moderator</h3><label>Person (must already be registered)</label><select id="sp">${cand.map(u=>`<option value="${u.id}">${esc(u.name||u.email)} (${esc(RN(u.role))}) · ${esc(u.email)}</option>`).join("")||`<option value="">No one available</option>`}</select><div style="margin:8px 0">${P.map(p=>pc(p,"new",false)).join("")}</div><p><button class="btn" id="sa">Make moderator</button></p><h3>Current moderators</h3>`
       +(ST.map(m=>`<div class="li"><div><b>${esc(m.name||m.email)}</b><div class="mut">${esc(m.email)}</div><div>${P.map(p=>pc(p,m.id,m.perms?.[p[0]])).join("")}</div></div><button class="btn sm" data-ss="${m.id}">Save</button><button class="btn bad sm" data-sr="${m.id}">Remove moderator</button></div>`).join("")||`<p class="mut">No moderators yet.</p>`);
     const rd=id=>Object.fromEntries(P.map(p=>[p[0],!!document.querySelector(`[data-pm="${id}"][value="${p[0]}"]`).checked]));
     $("#sa").onclick=async()=>{const id=$("#sp").value,u=UL.find(x=>x.id===id);if(!u)return toast("Pick a person");await setDoc(doc(db,"staff",id),{name:u.name||"",email:u.email||"",perms:rd("new")});toast("Moderator added");dash("staff")};
     $$("[data-ss]").forEach(b=>b.onclick=async()=>{await updateDoc(doc(db,"staff",b.dataset.ss),{perms:rd(b.dataset.ss)});toast("Saved")});
     $$("[data-sr]").forEach(b=>b.onclick=async()=>{if(confirm("Remove this moderator?")){await deleteDoc(doc(db,"staff",b.dataset.sr));dash("staff")}})}
-  if(tab==="inc"){c.innerHTML=`<p>Options added here appear in every landlord's “What's included” list and on listings. Built in: ${BASE.map(a=>a[1]+" "+a[2]).join(", ")}.</p><div class="row"><div><label>Emoji</label><input id="ie" maxlength="4" placeholder="🛏️"></div><div><label>Name</label><input id="in" placeholder="e.g. Study desk"></div></div><p><button class="btn" id="ia">Add option</button></p>`+(CI.length?CI.map((i,x)=>`<div class="li"><div>${esc(i.e)} ${esc(i.n)}</div><button class="btn bad sm" data-ci="${x}">Remove</button></div>`).join(""):`<p class="mut">No custom options yet.</p>`);
+  if(tab==="inc"){c.innerHTML=`<p>Options added here appear in every landlord and agent’s “What's included” list and on listings. Built in: ${BASE.map(a=>a[1]+" "+a[2]).join(", ")}.</p><div class="row"><div><label>Emoji</label><input id="ie" maxlength="4" placeholder="🛏️"></div><div><label>Name</label><input id="in" placeholder="e.g. Study desk"></div></div><p><button class="btn" id="ia">Add option</button></p>`+(CI.length?CI.map((i,x)=>`<div class="li"><div>${esc(i.e)} ${esc(i.n)}</div><button class="btn bad sm" data-ci="${x}">Remove</button></div>`).join(""):`<p class="mut">No custom options yet.</p>`);
     $("#ia").onclick=async()=>{const n=$("#in").value.trim();if(!n)return toast("Enter a name");await setDoc(doc(db,"config","inclusions"),{items:[...CI,{k:"c"+Date.now(),e:$("#ie").value.trim()||"✔️",n}]});toast("Option added");dash("inc")};
     $$("[data-ci]").forEach(b=>b.onclick=async()=>{await setDoc(doc(db,"config","inclusions"),{items:CI.filter((_,x)=>x!=b.dataset.ci)});dash("inc")})}
   if(tab==="xfer"){c.innerHTML=`<p>You are the only admin. Enter the email of the person who should take over. They log in with that email and tap <b>Accept admin role</b>. You stay admin until they accept.</p>${AD?.transferTo?`<p><span class="st">Pending: ${esc(AD.transferTo)}</span></p>`:""}<input id="xe" type="email" placeholder="new-admin@email.com"><p><button class="btn" id="xs">Send transfer</button> ${AD?.transferTo?`<button class="btn alt" style="color:var(--ink)" id="xc">Cancel transfer</button>`:""}</p>`;
@@ -357,7 +358,7 @@ const payFields=p=>`<div class="row"><div><label>MoMo network</label><select id=
 const readPay=()=>({momoNet:$("#pmn").value,momoNo:$("#pmo").value.replace(/\s/g,""),momoName:$("#pmm").value.trim(),bank:$("#pb").value.trim(),bankNo:$("#pbo").value.replace(/\s/g,""),bankName:$("#pbn").value.trim()});
 const payMsg=p=>!p.momoNo&&!p.bankNo?"Add a MoMo number or a bank account so tenants can pay you":p.momoNo&&!/^\d{10}$/.test(p.momoNo)?"MoMo number should be 10 digits, like 0241234567":p.bankNo&&!p.bank?"Add the bank name":"";
 function payBox(l){const p=l.pay||{},a=[];if(p.momoNo)a.push(`<div>📱 <b>${esc(p.momoNet)}</b>: ${esc(p.momoNo)}${p.momoName?" ("+esc(p.momoName)+")":""}</div>`);if(p.bankNo)a.push(`<div>🏦 <b>${esc(p.bank)}</b>: ${esc(p.bankNo)}${p.bankName?" ("+esc(p.bankName)+")":""}</div>`);
-  return a.length?`<div class="pay"><h3>How to pay</h3>${a.join("")}<p class="mut">Besa does not handle payments. Pay the landlord directly, and only after you have visited or confirmed the place.</p></div>`:""}
+  return a.length?`<div class="pay"><h3>How to pay</h3>${a.join("")}<p class="mut">Besa does not handle payments. Pay the landlord or agent directly, and only after you have visited or confirmed the place.</p></div>`:""}
 authMode();
 if(!live){nav();draw();setTimeout(()=>toast("Demo mode: add your Firebase config to go live"),600)}
 </script></body></html>
